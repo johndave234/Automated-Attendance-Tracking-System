@@ -8,7 +8,7 @@ import {
   Dimensions,
   Alert,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import InstructorTabBar from '../../components/InstructorTabBar';
 import Header from '../../components/Header';
 import StatisticsChart from '../../components/StatisticsChart';
@@ -23,6 +23,8 @@ const { width } = Dimensions.get('window');
 
 const InstructorDashboard = () => {
   const navigation = useNavigation();
+  const route = useRoute();
+  const instructorData = route.params?.instructorData || {};
   const [activeTab, setActiveTab] = useState('dashboard');
   const [statistics, setStatistics] = useState({
     totalStudents: 0,
@@ -39,6 +41,12 @@ const InstructorDashboard = () => {
     ],
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    type: 'error'
+  });
 
   useEffect(() => {
     fetchStatistics();
@@ -93,6 +101,10 @@ const InstructorDashboard = () => {
     }
   };
 
+  const showAlert = (title, message, type = 'error') => {
+    Alert.alert(title, message);
+  };
+
   const handleLogout = async () => {
     // Show confirmation dialog
     Alert.alert(
@@ -118,7 +130,7 @@ const InstructorDashboard = () => {
                 // Clear AsyncStorage
                 await AsyncStorage.multiRemove(['instructorId', 'instructorName', 'userType']);
                 
-                showAlert('Success', 'Logged out successfully', 'success');
+                Alert.alert('Success', 'Logged out successfully');
                 setTimeout(() => {
                   navigation.replace('Login');
                 }, 1500);

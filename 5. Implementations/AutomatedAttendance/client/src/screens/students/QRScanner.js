@@ -1,196 +1,571 @@
 import React, { useState } from 'react';
-import {
-  Text,
-  View,
-  StyleSheet,
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
   TouchableOpacity,
   Alert,
-  SafeAreaView,
-  StatusBar,
-  TextInput,
+  ActivityIndicator,
+  Dimensions 
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
-import { API_URL } from '../../config';
-import { useAuth } from '../../context/AuthContext';
-import { colors as projectColors, spacing, typography, shadows, borderRadius } from '../../config/theme';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URL, endpoints } from '../../config/api';
 
-const QRScanner = ({ route }) => {
-  const [qrCodeInput, setQrCodeInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+const { width } = Dimensions.get('window');
+
+export default function QRScanner() {
+  const [permission, requestPermission] = useCameraPermissions();
+  const [scanned, setScanned] = useState(false);
+  const [loading, setLoading] = useState(false);
+  
   const navigation = useNavigation();
-  const { user } = useAuth();
-  const { studentData } = route.params || {};
+  const route = useRoute();
+  const { courseCode, courseId } = route.params || {};
 
-  const handleManualSubmit = async () => {
-    if (!qrCodeInput.trim()) {
-      Alert.alert("Error", "Please enter a valid code");
-      return;
-    }
-    
+  // Function to record attendance in the backend
+  const recordAttendance = async (studentId, courseCode, sessionId = null, expiresAt = null, isManualCode = false) => {
     try {
-      setIsLoading(true);
-
-      // Try to parse the QR code data
-      let attendanceData;
-      try {
-        attendanceData = JSON.parse(qrCodeInput);
-      } catch (e) {
-        throw new Error('Invalid code format. Please try again.');
+      setLoading(true);
+      
+      const requestBody = {
+        studentId,
+        courseCode,
+        status: 'Present',
+        isManualCode
+      };
+      
+      // Add sessionId to request if available
+      if (sessionId) {
+        requestBody.sessionId = sessionId;
       }
       
-      // Validate the QR code data
-      if (!attendanceData.courseId || !attendanceData.instructorId || !attendanceData.timestamp) {
-        throw new Error('Invalid code format');
+      // Add uniqueCode if available in the scanned data
+      if (sessionId?.uniqueCode) {
+        requestBody.uniqueCode = sessionId.uniqueCode;
       }
-
-      // Send attendance data to backend
-      const response = await axios.post(`${API_URL}/api/attendance/record`, {
-        studentId: studentData?.idNumber || user?.id,
-        courseId: attendanceData.courseId,
-        instructorId: attendanceData.instructorId,
-        timestamp: attendanceData.timestamp,
-        qrCodeData: qrCodeInput
+      
+      // Add expiration time if available
+      if (expiresAt) {
+        requestBody.expiresAt = expiresAt;
+      }
+      
+      console.log("Sending attendance data:", requestBody);
+      
+      // Always use the new session-based endpoint
+      const response = await fetch(`${API_URL}${endpoints.sessionRecord}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
       });
+      
+      let data = await response.json();
+      console.log("Session attendance response:", data);
+      
+      if (response.ok && (data.success || !data.hasOwnProperty('success'))) {
+        return {
+          success: true,
+          message: data.message || 'Attendance recorded successfully!',
+          timeRecorded: data.student?.timeRecorded || null
+        };
+      } else {
+        // Only if the session endpoint completely fails, try the legacy endpoint as fallback
+        console.log("Falling back to legacy attendance system");
+        
+        const legacyResponse = await fetch(`${API_URL}${endpoints.attendanceRecord}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            studentId,
+            courseCode,
+            status: 'Present'
+          })
+        });
+        
+        const legacyData = await legacyResponse.json();
+        console.log("Legacy attendance response:", legacyData);
+        
+        if (legacyResponse.ok) {
+          return {
+            success: true,
+            message: legacyData.message || 'Attendance recorded successfully (legacy)!'
+          };
+        }
+        
+        return {
+          success: false,
+          message: data.message || 'Failed to record attendance'
+        };
+      }
+    } catch (error) {
+      console.error('Error recording attendance:', error);
+      return {
+        success: false,
+        message: 'Network error. Please try again.'
+      };
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      if (response.data.success) {
+  const handleBarCodeScanned = async (scanningResult) => {
+    if (scanned || loading) return;
+    
+    try {
+      const { data } = scanningResult;
+      setScanned(true);
+      
+      // Get student ID from storage
+      const studentId = await AsyncStorage.getItem('studentId');
+      
+      if (!studentId) {
         Alert.alert(
-          "Success",
-          "Attendance recorded successfully!",
+          'Error',
+          'You need to be logged in to record attendance.',
           [
             {
-              text: "OK",
-              onPress: () => {
-                setIsLoading(false);
-                navigation.goBack();
-              }
+              text: 'OK',
+              onPress: () => navigation.goBack(),
+              style: 'default',
             }
           ]
         );
-      } else {
-        throw new Error(response.data.message || 'Failed to record attendance');
+        return;
+      }
+      
+      // Attempt to parse QR data
+      try {
+        const parsedData = JSON.parse(data);
+        
+        // Check for QR code expiration
+        if (parsedData.expiresAt) {
+          const expirationTime = new Date(parsedData.expiresAt);
+          const now = new Date();
+          
+          if (now > expirationTime) {
+            Alert.alert(
+              'Expired QR Code',
+              'This QR code has expired. You can use a manual attendance code instead.',
+              [
+                {
+                  text: 'Use Manual Code',
+                  onPress: () => {
+                    // Ask for manual attendance code
+                    Alert.prompt(
+                      'Enter Attendance Code',
+                      'Please enter the manual attendance code provided by your instructor.',
+                      [
+                        {
+                          text: 'Cancel',
+                          onPress: () => setScanned(false),
+                          style: 'cancel',
+                        },
+                        {
+                          text: 'Submit',
+                          onPress: async (code) => {
+                            if (!code || code.trim().length === 0) {
+                              Alert.alert('Error', 'Please enter a valid code');
+                              setScanned(false);
+                              return;
+                            }
+                            
+                            // Record attendance with manual code
+                            const attendanceResult = await recordAttendance(
+                              studentId,
+                              parsedData.courseCode || courseCode,
+                              parsedData.sessionId,
+                              parsedData.expiresAt,
+                              true // Flag as manual code
+                            );
+                            
+                            if (attendanceResult.success) {
+                              Alert.alert(
+                                'Success',
+                                `Attendance recorded manually. You are marked as Late.\n\nTime: ${attendanceResult.timeRecorded || new Date().toLocaleTimeString('en-PH')}`,
+                                [{ text: 'OK', onPress: () => navigation.goBack() }]
+                              );
+                            } else {
+                              Alert.alert(
+                                'Error',
+                                attendanceResult.message,
+                                [{ text: 'Try Again', onPress: () => setScanned(false) }]
+                              );
+                            }
+                          }
+                        }
+                      ],
+                      'plain-text'
+                    );
+                  }
+                },
+                {
+                  text: 'Scan Again',
+                  onPress: () => setScanned(false),
+                  style: 'default',
+                },
+                {
+                  text: 'Go Back',
+                  onPress: () => navigation.goBack(),
+                  style: 'cancel',
+                }
+              ]
+            );
+            return;
+          }
+        }
+        
+        // Check if the scanned QR code matches the expected course
+        if (parsedData.courseId === courseId || parsedData.courseCode === courseCode) {
+          // QR code matches the course - record attendance
+          
+          // Support both old and new QR format
+          let attendanceResult;
+          
+          if (parsedData.sessionId) {
+            // New session-based format
+            attendanceResult = await recordAttendance(
+              studentId, 
+              parsedData.courseCode || courseCode,
+              parsedData.sessionId,
+              parsedData.expiresAt
+            );
+          } else {
+            // Legacy format or format without sessionId
+            attendanceResult = await recordAttendance(
+              studentId, 
+              parsedData.courseCode || courseCode,
+              null,
+              parsedData.expiresAt
+            );
+          }
+          
+          if (attendanceResult.success) {
+            // Format the success message to include Philippine time if available
+            let successMessage = attendanceResult.message;
+            
+            if (attendanceResult.timeRecorded) {
+              successMessage = `${successMessage}\n\nTime recorded: ${attendanceResult.timeRecorded}`;
+            } else {
+              // Get current Philippine time
+              const options = { 
+                timeZone: 'Asia/Manila',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+              };
+              
+              const phTime = new Date().toLocaleTimeString('en-PH', options);
+              successMessage = `${successMessage}\n\nTime recorded: ${phTime}`;
+            }
+            
+            Alert.alert(
+              'Success',
+              successMessage,
+              [
+                {
+                  text: 'Go Back',
+                  onPress: () => navigation.goBack(),
+                  style: 'default',
+                }
+              ]
+            );
+          } else {
+            Alert.alert(
+              'Error',
+              attendanceResult.message,
+              [
+                {
+                  text: 'Try Again',
+                  onPress: () => setScanned(false),
+                  style: 'default',
+                },
+                {
+                  text: 'Go Back',
+                  onPress: () => navigation.goBack(),
+                  style: 'cancel',
+                }
+              ]
+            );
+          }
+        } else {
+          // QR code is valid but doesn't match the expected course
+          Alert.alert(
+            'Error',
+            'Wrong QR code. This code is for a different course.',
+            [
+              {
+                text: 'Scan Again',
+                onPress: () => setScanned(false),
+                style: 'default',
+              },
+              {
+                text: 'Go Back',
+                onPress: () => navigation.goBack(),
+                style: 'cancel',
+              }
+            ]
+          );
+        }
+      } catch (e) {
+        // QR code is not in valid JSON format
+        Alert.alert(
+          'Error',
+          'Invalid QR code. The code has not been generated correctly.',
+          [
+            {
+              text: 'Scan Again',
+              onPress: () => setScanned(false),
+              style: 'default',
+            },
+            {
+              text: 'Go Back',
+              onPress: () => navigation.goBack(),
+              style: 'cancel',
+            }
+          ]
+        );
       }
     } catch (error) {
-      Alert.alert(
-        "Error",
-        error.message || "Failed to process code. Please try again.",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              setIsLoading(false);
-            }
-          }
-        ]
-      );
+      console.log('Error processing scan:', error);
+      setScanned(false);
+      Alert.alert('Error', 'Could not process QR code. Please try again.');
     }
   };
 
-  const handleBack = () => {
+  const handleGoBack = () => {
     navigation.goBack();
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={projectColors.white} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Manual Code Entry</Text>
-        <View style={styles.backButton} />
+  // Show loading indicator while checking permissions
+  if (!permission) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </TouchableOpacity>
+          <Text style={styles.headerText}>QR Scanner</Text>
+        </View>
+        <View style={styles.contentContainer}>
+          <ActivityIndicator size="large" color="#FFFFFF" />
+          <Text style={styles.messageText}>Loading camera...</Text>
+        </View>
       </View>
+    );
+  }
 
-      {/* Form */}
-      <View style={styles.formContainer}>
-        <Text style={styles.label}>Enter Attendance Code:</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Paste attendance code here"
-          value={qrCodeInput}
-          onChangeText={setQrCodeInput}
-          multiline
-          numberOfLines={4}
-        />
-
-        <TouchableOpacity 
-          style={styles.submitButton}
-          onPress={handleManualSubmit}
-          disabled={isLoading}
-        >
-          <Text style={styles.submitButtonText}>
-            {isLoading ? "Processing..." : "Submit"}
+  // If permission is not granted, show permission request
+  if (!permission.granted) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </TouchableOpacity>
+          <Text style={styles.headerText}>Camera Permission Required</Text>
+        </View>
+        <View style={styles.contentContainer}>
+          <Ionicons name="camera-off" size={80} color="#FF6B6B" />
+          <Text style={styles.messageText}>
+            Camera permission is required to scan QR codes
           </Text>
-        </TouchableOpacity>
-
-        <Text style={styles.instructionsText}>
-          Enter the attendance code provided by your instructor
-        </Text>
+          <TouchableOpacity 
+            style={styles.permissionButton} 
+            onPress={requestPermission}
+          >
+            <Text style={styles.permissionButtonText}>Grant Permission</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </SafeAreaView>
+    );
+  }
+
+  // Camera view for scanning QR codes
+  return (
+    <View style={styles.container}>
+      <CameraView
+        style={styles.camera}
+        facing="back"
+        barcodeScannerSettings={{
+          barcodeTypes: ["qr"],
+        }}
+        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+      >
+        <View style={styles.overlay}>
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
+              <Ionicons name="arrow-back" size={24} color="white" />
+            </TouchableOpacity>
+            <Text style={styles.headerText}>
+              Scan QR Code for {courseCode || 'Course'}
+            </Text>
+          </View>
+          
+          <View style={styles.scanFrameContainer}>
+            <View style={styles.scanFrame}>
+              <View style={styles.cornerTL} />
+              <View style={styles.cornerTR} />
+              <View style={styles.cornerBL} />
+              <View style={styles.cornerBR} />
+            </View>
+            
+            {scanned && (
+              <TouchableOpacity
+                style={styles.scanAgainButton}
+                onPress={() => setScanned(false)}
+              >
+                <Text style={styles.scanAgainButtonText}>Tap to Scan Again</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              Position QR code within the frame
+            </Text>
+          </View>
+        </View>
+      </CameraView>
+    </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: projectColors.background,
+    backgroundColor: '#1a1a1a',
+  },
+  camera: {
+    flex: 1,
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    flexDirection: 'column',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.md,
-    backgroundColor: projectColors.navy,
-    ...shadows.medium,
+    padding: 20,
+    paddingTop: 40,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  headerText: {
+    color: 'white',
+    fontSize: 18,
+    marginLeft: 10,
+    fontWeight: 'bold',
   },
   backButton: {
-    width: 40,
-    height: 40,
+    padding: 5,
+  },
+  contentContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#2a2a2a',
+  },
+  messageText: {
+    color: 'white',
+    fontSize: 18,
+    marginTop: 20,
+    textAlign: 'center',
+    paddingHorizontal: 30,
+  },
+  permissionButton: {
+    backgroundColor: '#165973',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginTop: 20,
+  },
+  permissionButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  scanFrameContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitle: {
-    ...typography.h2,
-    color: projectColors.white,
+  scanFrame: {
+    width: width * 0.7,
+    height: width * 0.7,
+    position: 'relative',
+    borderRadius: 10,
   },
-  formContainer: {
-    padding: spacing.lg,
+  cornerTL: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 30,
+    height: 30,
+    borderTopWidth: 3,
+    borderLeftWidth: 3,
+    borderColor: 'white',
+    borderTopLeftRadius: 10,
   },
-  label: {
-    ...typography.body1,
-    fontWeight: 'bold',
-    marginBottom: spacing.sm,
+  cornerTR: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 30,
+    height: 30,
+    borderTopWidth: 3,
+    borderRightWidth: 3,
+    borderColor: 'white',
+    borderTopRightRadius: 10,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: projectColors.border,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    minHeight: 120,
-    textAlignVertical: 'top',
-    marginBottom: spacing.lg,
+  cornerBL: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: 30,
+    height: 30,
+    borderBottomWidth: 3,
+    borderLeftWidth: 3,
+    borderColor: 'white',
+    borderBottomLeftRadius: 10,
   },
-  submitButton: {
-    backgroundColor: projectColors.primary,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
+  cornerBR: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 30,
+    height: 30,
+    borderBottomWidth: 3,
+    borderRightWidth: 3,
+    borderColor: 'white',
+    borderBottomRightRadius: 10,
+  },
+  scanAgainButton: {
+    backgroundColor: '#165973',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginTop: 30,
+  },
+  scanAgainButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  footer: {
+    padding: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
     alignItems: 'center',
-    ...shadows.small,
   },
-  submitButtonText: {
-    ...typography.button,
-    color: projectColors.white,
-  },
-  instructionsText: {
-    ...typography.caption,
-    marginTop: spacing.lg,
+  footerText: {
+    color: 'white',
+    fontSize: 16,
     textAlign: 'center',
-    color: projectColors.textSecondary,
-  }
-});
-
-export default QRScanner; 
+  },
+}); 

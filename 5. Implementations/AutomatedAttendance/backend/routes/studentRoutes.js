@@ -74,41 +74,55 @@ router.delete('/:id', adminAuth, async (req, res) => {
 router.post('/login', async (req, res) => {
     try {
         const { studentId, password } = req.body;
+        console.log(`Login attempt for student ID: ${studentId}`);
+        const startTime = Date.now();
 
-        // Find student by ID
-        const student = await Student.findOne({ idNumber: studentId });
+        // Find student by ID (with lean() for better performance)
+        const student = await Student.findOne({ idNumber: studentId }).lean();
         
         // If student doesn't exist
         if (!student) {
+            console.log(`Student ID not found: ${studentId} (${Date.now() - startTime}ms)`);
             return res.status(401).json({ message: 'Invalid student ID or password' });
         }
 
-        // Check password using the new comparePassword method
-        const isMatch = await student.comparePassword(password);
+        // Check password using the Student model's comparePassword
+        // Retrieve a non-lean document for methods
+        const studentWithMethods = await Student.findById(student._id);
+        const isMatch = await studentWithMethods.comparePassword(password);
+        
         if (!isMatch) {
+            console.log(`Invalid password for student: ${studentId} (${Date.now() - startTime}ms)`);
             return res.status(401).json({ message: 'Invalid student ID or password' });
         }
 
-        // Create login log
-        await UserLog.create({
-            userId: student._id,
-            userType: 'Student',
-            fullName: student.fullName,
-            idNumber: student.idNumber,
-            action: 'login'
-        });
-
-        // Return student data (excluding password)
-        res.json({
+        // Create success response first
+        const responseData = {
             success: true,
             student: {
                 id: student._id,
                 idNumber: student.idNumber,
                 fullName: student.fullName
             }
-        });
+        };
 
-    } catch {
+        // Create login log asynchronously (don't wait for it)
+        UserLog.create({
+            userId: student._id,
+            userType: 'Student',
+            fullName: student.fullName,
+            idNumber: student.idNumber,
+            action: 'login'
+        }).catch(err => console.error('Error creating login log:', err));
+
+        // Log performance
+        console.log(`Student login successful: ${studentId} (${Date.now() - startTime}ms)`);
+        
+        // Return student data (excluding password)
+        res.json(responseData);
+
+    } catch (error) {
+        console.error('Student login error:', error);
         res.status(500).json({ message: 'Server error' });
     }
 });

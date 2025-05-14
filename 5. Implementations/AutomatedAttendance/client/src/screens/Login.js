@@ -77,77 +77,133 @@ const Login = () => {
         return;
       }
       
-      // Try student login
+      // Determine user type based on username format or prefix
+      // This approach avoids sequential API calls
+      const isLikelyStudent = /^[0-9]/.test(username.trim()) || username.toLowerCase().includes('stud');
+      
+      // Configure axios with a timeout
+      const axiosConfig = {
+        timeout: 8000 // 8 second timeout
+      };
+      
+      // Try appropriate login endpoint directly instead of trying both
       try {
-        const studentResponse = await axios.post(`${API_URL}/api/students/login`, {
-          studentId: username.trim(),
-          password: password.trim()
-        });
+        const endpoint = isLikelyStudent 
+          ? `${API_URL}/api/students/login`
+          : `${API_URL}/api/instructors/login`;
         
-        if (studentResponse.data.success) {
-          const studentData = {
-            idNumber: studentResponse.data.student.idNumber,
-            fullName: studentResponse.data.student.fullName
-          };
+        const payload = isLikelyStudent
+          ? { studentId: username.trim(), password: password.trim() }
+          : { instructorId: username.trim(), password: password.trim() };
+        
+        console.log(`Attempting login at: ${endpoint}`);
+        const response = await axios.post(endpoint, payload, axiosConfig);
+        
+        if (response.data.success) {
+          const userData = isLikelyStudent 
+            ? {
+                idNumber: response.data.student.idNumber,
+                fullName: response.data.student.fullName
+              }
+            : {
+                idNumber: response.data.instructor.idNumber,
+                fullName: response.data.instructor.fullName
+              };
           
-          // Store student data in AsyncStorage
-          await AsyncStorage.multiSet([
-            ['studentId', studentData.idNumber],
-            ['studentName', studentData.fullName],
-            ['userType', 'student']
-          ]);
+          // Store user data in AsyncStorage
+          const storageItems = isLikelyStudent
+            ? [
+                ['studentId', userData.idNumber],
+                ['studentName', userData.fullName],
+                ['userType', 'student']
+              ]
+            : [
+                ['instructorId', userData.idNumber],
+                ['instructorName', userData.fullName],
+                ['userType', 'instructor']
+              ];
+          
+          await AsyncStorage.multiSet(storageItems);
           
           // Update auth context
-          login('student', studentData);
+          login(isLikelyStudent ? 'student' : 'instructor', userData);
           
-          showAlert('Success', 'Student login successful!', 'success');
+          const userType = isLikelyStudent ? 'Student' : 'Instructor';
+          showAlert('Success', `${userType} login successful!`, 'success');
           
           setTimeout(() => {
-            navigation.replace('StudentDashboard', { studentData });
+            const targetScreen = isLikelyStudent ? 'StudentDashboard' : 'InstructorDashboard';
+            navigation.replace(targetScreen, { [isLikelyStudent ? 'studentData' : 'instructorData']: userData });
           }, 1500);
           return;
         }
-      } catch (studentError) {
-        // Failed student login, try instructor login
-      }
-      
-      // Try instructor login
-      try {
-        const instructorResponse = await axios.post(`${API_URL}/api/instructors/login`, {
-          instructorId: username.trim(),
-          password: password.trim()
-        });
+      } catch (error) {
+        console.log('Login error:', error);
         
-        if (instructorResponse.data.success) {
-          const instructorData = {
-            idNumber: instructorResponse.data.instructor.idNumber,
-            fullName: instructorResponse.data.instructor.fullName
-          };
+        // If first attempt fails, try the other user type
+        try {
+          const fallbackEndpoint = !isLikelyStudent 
+            ? `${API_URL}/api/students/login`
+            : `${API_URL}/api/instructors/login`;
           
-          // Store instructor data
-          await AsyncStorage.multiSet([
-            ['instructorId', instructorData.idNumber],
-            ['instructorName', instructorData.fullName],
-            ['userType', 'instructor']
-          ]);
+          const fallbackPayload = !isLikelyStudent
+            ? { studentId: username.trim(), password: password.trim() }
+            : { instructorId: username.trim(), password: password.trim() };
           
-          // Update auth context
-          login('instructor', instructorData);
+          console.log(`Attempting fallback login at: ${fallbackEndpoint}`);
+          const fallbackResponse = await axios.post(fallbackEndpoint, fallbackPayload, axiosConfig);
           
-          showAlert('Success', 'Instructor login successful!', 'success');
-          
-          setTimeout(() => {
-            navigation.replace('InstructorDashboard', { instructorData });
-          }, 1500);
-          return;
+          if (fallbackResponse.data.success) {
+            const userData = !isLikelyStudent 
+              ? {
+                  idNumber: fallbackResponse.data.student.idNumber,
+                  fullName: fallbackResponse.data.student.fullName
+                }
+              : {
+                  idNumber: fallbackResponse.data.instructor.idNumber,
+                  fullName: fallbackResponse.data.instructor.fullName
+                };
+            
+            // Store user data
+            const storageItems = !isLikelyStudent
+              ? [
+                  ['studentId', userData.idNumber],
+                  ['studentName', userData.fullName],
+                  ['userType', 'student']
+                ]
+              : [
+                  ['instructorId', userData.idNumber],
+                  ['instructorName', userData.fullName],
+                  ['userType', 'instructor']
+                ];
+            
+            await AsyncStorage.multiSet(storageItems);
+            
+            // Update auth context
+            login(!isLikelyStudent ? 'student' : 'instructor', userData);
+            
+            const userType = !isLikelyStudent ? 'Student' : 'Instructor';
+            showAlert('Success', `${userType} login successful!`, 'success');
+            
+            setTimeout(() => {
+              const targetScreen = !isLikelyStudent ? 'StudentDashboard' : 'InstructorDashboard';
+              navigation.replace(targetScreen, { [!isLikelyStudent ? 'studentData' : 'instructorData']: userData });
+            }, 1500);
+            return;
+          }
+        } catch (fallbackError) {
+          // Both attempts failed, show invalid credentials error
+          console.log('Fallback login error:', fallbackError);
+          setError('Invalid username or password');
         }
-      } catch (instructorError) {
-        // Login failed for all roles
-        setError('Invalid username or password');
       }
-      
     } catch (error) {
-      setError(error.response?.data?.message || 'Failed to connect to server');
+      if (error.code === 'ECONNABORTED') {
+        setError('Connection timeout. Please check your internet connection and try again.');
+      } else {
+        setError(error.response?.data?.message || 'Failed to connect to server');
+      }
+      console.error('Login error:', error);
     } finally {
       setIsLoading(false);
     }

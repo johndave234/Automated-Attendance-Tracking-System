@@ -7,7 +7,7 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import TabBar from '../../components/TabBar';
 import Header from '../../components/Header';
 import StatisticsChart from '../../components/StatisticsChart';
@@ -23,6 +23,7 @@ import axios from 'axios';
 
 const Dashboard = () => {
   const navigation = useNavigation();
+  const route = useRoute();
   const { loginAdmin, logoutAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [statistics, setStatistics] = useState({
@@ -162,23 +163,18 @@ const Dashboard = () => {
             try {
               setIsLoading(true);
               
-              const response = await axios.post(`${API_URL}/api/admin/logout`, {
-                adminId: adminData.idNumber
-              });
-
-              if (response.data.success) {
-                // Clear AsyncStorage
-                await AsyncStorage.multiRemove(['adminId', 'adminName', 'userType']);
-                
-                showAlert('Success', 'Logged out successfully', 'success');
-                setTimeout(() => {
-                  navigation.replace('Login');
-                }, 1500);
-              } else {
-                throw new Error(response.data.message || 'Logout failed');
-              }
+              // Use the admin logout function from context
+              logoutAdmin();
+              
+              // Clear AsyncStorage
+              await AsyncStorage.multiRemove(['adminId', 'adminName', 'userType']);
+              
+              Alert.alert('Success', 'Logged out successfully');
+              setTimeout(() => {
+                navigation.replace('Login');
+              }, 1500);
             } catch (error) {
-              Alert.alert('Error', error.response?.data?.message || 'Failed to logout');
+              Alert.alert('Error', 'Failed to logout');
             } finally {
               setIsLoading(false);
             }
@@ -260,6 +256,7 @@ const Dashboard = () => {
     <SafeAreaView style={styles.container}>
       <Header 
         title="Admin Dashboard" 
+        showLogout={true}
         onLogout={handleLogout}
       />
       <View style={styles.content}>

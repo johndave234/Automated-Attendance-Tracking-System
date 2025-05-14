@@ -1,23 +1,15 @@
 import { Platform } from 'react-native';
 
 // API Configuration
-const LOCAL_IP = '192.168.254.197'; // Your computer's actual IP address
-const LOCALHOST = 'localhost';
-
-// Get the correct API URL based on platform
-const getApiUrl = () => {
-  if (Platform.OS === 'web') {
-    return `http://${LOCALHOST}:5001`;
-  }
-  // For mobile devices (both iOS and Android)
-  return `http://${LOCAL_IP}:5001`;
-};
-
-export const API_URL = getApiUrl();
-
-// Log the API URL for debugging
-console.log('Platform:', Platform.OS);
-console.log('API URL:', API_URL);
+// IMPORTANT: When changing WiFi networks:
+// 1. Run 'ipconfig' in Command Prompt/PowerShell
+// 2. Find your new IPv4 address
+// 3. Replace the IP address below with your new IP
+export const API_URL = Platform.select({
+  android: 'http://192.168.254.147:5001',    // <- Updated port to 5001
+  ios: 'http://192.168.254.254:5001',        // <- Updated port to 5001
+  default: 'http://localhost:5001'           // <- Updated port to 5001
+});
 
 export const endpoints = {
     studentCreate: '/api/students/create',
@@ -28,8 +20,23 @@ export const endpoints = {
     instructorLogout: '/api/instructors/logout',
     courses: '/api/courses',
     courseCreate: '/api/courses',
-    courseUpdate: '/api/courses/update',  // Will be appended with /:id in the component
-    courseDelete: '/api/courses/delete',  // Will be appended with /:id in the component
+    courseUpdate: '/api/courses/update',
+    courseDelete: '/api/courses/delete',
+    courseVerifyCode: '/api/courses/verify-code',
     instructorCourses: '/api/courses/instructor',
     courseStudents: '/api/courses/students',
+    
+    // Legacy Attendance endpoints
+    attendanceRecord: '/api/attendance/record',
+    courseAttendance: '/api/attendance/course',
+    studentAttendance: '/api/attendance/student',
+    updateAttendance: '/api/attendance',
+    
+    // New Session-based Attendance endpoints
+    sessions: '/api/sessions',
+    sessionCreate: '/api/sessions/create',
+    sessionAttendance: '/api/session-attendance',
+    sessionRecord: '/api/session-attendance/record',
+    sessionStudentAttendance: '/api/sessions/student',
+    sessionStats: '/api/sessions/stats/course'
 }; 

@@ -122,29 +122,29 @@ const StudentDashboard = () => {
           text: "Logout",
           style: "destructive",
           onPress: async () => {
-    try {
-      setIsLoading(true);
-      
-      const response = await axios.post(`${API_URL}/api/students/logout`, {
-        studentId: studentData.idNumber
-      });
+            try {
+              setIsLoading(true);
+              
+              const response = await axios.post(`${API_URL}/api/students/logout`, {
+                studentId: studentData.idNumber
+              });
 
-      if (response.data.success) {
-        // Clear AsyncStorage
-        await AsyncStorage.multiRemove(['studentId', 'studentName', 'userType']);
-        
-        showAlert('Success', 'Logged out successfully', 'success');
-        setTimeout(() => {
+              if (response.data.success) {
+                // Clear AsyncStorage
+                await AsyncStorage.multiRemove(['studentId', 'studentName', 'userType']);
+                
+                showAlert('Success', 'Logged out successfully', 'success');
+                setTimeout(() => {
                   navigation.replace('Login');
-        }, 1500);
-      } else {
-        throw new Error(response.data.message || 'Logout failed');
-      }
-    } catch (error) {
-      Alert.alert('Error', error.response?.data?.message || 'Failed to logout');
-    } finally {
-      setIsLoading(false);
-    }
+                }, 1500);
+              } else {
+                throw new Error(response.data.message || 'Logout failed');
+              }
+            } catch (error) {
+              Alert.alert('Error', error.response?.data?.message || 'Failed to logout');
+            } finally {
+              setIsLoading(false);
+            }
           }
         }
       ],

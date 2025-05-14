@@ -14,18 +14,32 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.automatedattendance.app"
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app needs camera access to scan QR codes for attendance",
+        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.automatedattendance.app"
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": []
+    "plugins": [
+      [
+        "expo-barcode-scanner",
+        {
+          "cameraPermissionText": "Allow camera access to scan QR codes"
+        }
+      ]
+    ],
+    "owner": "tokyo20"
   }
 }
