@@ -246,32 +246,7 @@ const Users = ({ onUpdate }) => {
       <AccountModal
         visible={isModalVisible}
         onClose={handleModalClose}
-        title="Edit Account"
-        fields={[
-          {
-            key: 'idNumber',
-            label: 'ID Number',
-            value: selectedAccount?.idNumber,
-            required: true
-          },
-          {
-            key: 'name',
-            label: 'Full Name',
-            value: selectedAccount?.name,
-            required: true
-          },
-          {
-            key: 'type',
-            label: 'Account Type',
-            value: selectedAccount?.type,
-            type: 'select',
-            options: [
-              { label: 'Student', value: 'Student' },
-              { label: 'Instructor', value: 'Instructor' }
-            ],
-            required: true
-          }
-        ]}
+        account={selectedAccount}
         onSave={handleSaveAccount}
       />
 

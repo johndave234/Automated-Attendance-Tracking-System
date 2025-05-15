@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, shadows, spacing, borderRadius } from '../config/theme';
 
 const StatisticsChart = ({ stats = [] }) => {
   return (
@@ -18,16 +17,15 @@ const StatisticsChart = ({ stats = [] }) => {
             key={index}
             style={[
               styles.statCard,
-              { backgroundColor: stat.backgroundColor || colors.primary }
+              { backgroundColor: stat.backgroundColor || '#165973' }
             ]}
             onPress={stat.onPress}
-            disabled={!stat.onPress}
           >
             <View style={styles.iconContainer}>
               <Ionicons 
                 name={stat.icon} 
-                size={32} 
-                color={colors.text.inverse} 
+                size={28} 
+                color="#fff" 
               />
             </View>
             <Text style={styles.statValue}>{stat.value}</Text>
@@ -41,33 +39,40 @@ const StatisticsChart = ({ stats = [] }) => {
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: spacing.lg,
+    flex: 1,
+    width: '100%',
   },
   grid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginHorizontal: -spacing.xs,
+    width: '100%',
   },
   statCard: {
-    width: (Dimensions.get('window').width - (spacing.lg * 3)) / 2,
-    padding: spacing.lg,
-    borderRadius: borderRadius.lg,
-    marginHorizontal: spacing.xs,
-    marginBottom: spacing.sm,
-    ...shadows.medium,
+    width: '48%',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   iconContainer: {
-    marginBottom: spacing.sm,
+    marginBottom: 10,
   },
   statValue: {
-    ...typography.h2,
-    color: colors.text.inverse,
-    marginBottom: spacing.xs,
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 5,
   },
   statLabel: {
-    ...typography.body2,
-    color: colors.text.inverse,
+    fontSize: 14,
+    color: '#fff',
     opacity: 0.9,
   },
 });

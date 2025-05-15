@@ -54,10 +54,6 @@ const Signup = ({ route }) => {
       const endpoint = accountType === 'student' ? endpoints.studentCreate : endpoints.instructorCreate;
       const url = `${API_URL}${endpoint}`;
       
-      console.log('Starting signup process...');
-      console.log('API URL:', url);
-      console.log('Account type:', accountType);
-      
       const requestBody = {
         idNumber,
         fullName,
@@ -66,20 +62,6 @@ const Signup = ({ route }) => {
         ...(accountType === 'instructor' && { department: 'IT' })
       };
 
-      // Test server connectivity first
-      try {
-        console.log('Testing server connectivity...');
-        const testResponse = await fetch(`${API_URL}/test`);
-        if (!testResponse.ok) {
-          throw new Error('Server connectivity test failed');
-        }
-        console.log('Server connectivity test passed');
-      } catch (testError) {
-        console.error('Server connectivity test failed:', testError);
-        throw new Error('Cannot connect to server. Please check your network connection.');
-      }
-
-      console.log('Sending signup request...');
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -90,15 +72,7 @@ const Signup = ({ route }) => {
         body: JSON.stringify(requestBody)
       });
 
-      console.log('Response status:', response.status);
-      let data;
-      try {
-        data = await response.json();
-        console.log('Response data:', data);
-      } catch (parseError) {
-        console.error('Error parsing response:', parseError);
-        throw new Error('Invalid response from server');
-      }
+      const data = await response.json();
 
       if (response.ok) {
         setAlert({
@@ -122,23 +96,18 @@ const Signup = ({ route }) => {
           navigation.goBack();
         }, 1500);
       } else {
-        const errorMessage = data?.message || 'Failed to create account';
-        console.error('Server returned error:', errorMessage);
         setAlert({
           visible: true,
           type: 'error',
-          message: errorMessage
+          message: data.message || 'Failed to create account'
         });
       }
     } catch (error) {
-      console.error('Signup error:', {
-        message: error.message,
-        stack: error.stack
-      });
+      console.error('Error creating account:', error);
       setAlert({
         visible: true,
         type: 'error',
-        message: error.message || 'Failed to connect to server. Please try again.'
+        message: 'Failed to connect to server. Please try again.'
       });
     } finally {
       setIsLoading(false);
@@ -158,7 +127,7 @@ const Signup = ({ route }) => {
   };
 
   return (
-    <TouchableWithoutFeedback onPress={Platform.OS === 'web' ? undefined : Keyboard.dismiss}>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <SafeAreaView style={styles.container}>
         <View style={styles.background} />
         
@@ -171,7 +140,7 @@ const Signup = ({ route }) => {
         )}
         
         <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.content}
         >
           {/* Back Button */}
@@ -229,29 +198,23 @@ const Signup = ({ route }) => {
             <View style={styles.inputContainer}>
               <Text style={styles.label}>ID Number</Text>
               <TextInput
-                style={[styles.input, Platform.OS === 'web' && styles.webInput]}
-                placeholder="Enter ID number"
+                style={styles.input}
+                placeholder={`Enter ${accountType}'s ID number`}
                 value={idNumber}
-                onChangeText={(text) => setIdNumber(text)}
-                keyboardType="default"
+                onChangeText={setIdNumber}
+                keyboardType="numeric"
                 autoCapitalize="none"
-                enterKeyHint="next"
-                autoComplete="username"
-                spellCheck={false}
               />
             </View>
             
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Full Name</Text>
               <TextInput
-                style={[styles.input, Platform.OS === 'web' && styles.webInput]}
-                placeholder="Enter full name"
+                style={styles.input}
+                placeholder={`Enter ${accountType}'s full name`}
                 value={fullName}
-                onChangeText={(text) => setFullName(text)}
-                keyboardType="default"
+                onChangeText={setFullName}
                 autoCapitalize="words"
-                enterKeyHint="next"
-                spellCheck={false}
               />
             </View>
 
@@ -259,15 +222,11 @@ const Signup = ({ route }) => {
               <Text style={styles.label}>Password</Text>
               <View style={styles.passwordContainer}>
                 <TextInput
-                  style={[styles.passwordInput, Platform.OS === 'web' && styles.webInput]}
-                  placeholder="Enter password"
+                  style={styles.passwordInput}
+                  placeholder="Create a password"
                   value={password}
-                  onChangeText={(text) => setPassword(text)}
+                  onChangeText={setPassword}
                   secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                  enterKeyHint="done"
-                  autoComplete="new-password"
-                  spellCheck={false}
                 />
                 <TouchableOpacity
                   style={styles.eyeIcon}
@@ -321,11 +280,6 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
-    ...(Platform.OS === 'web' && {
-      maxWidth: 480,
-      alignSelf: 'center',
-      width: '100%',
-    }),
   },
   backButton: {
     position: 'absolute',
@@ -343,10 +297,6 @@ const styles = StyleSheet.create({
     width: width * 0.3,
     height: width * 0.3,
     marginBottom: 20,
-    ...(Platform.OS === 'web' && {
-      width: 120,
-      height: 120,
-    }),
   },
   title: {
     fontSize: 24,
@@ -371,9 +321,6 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    ...(Platform.OS === 'web' && {
-      boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.1)',
-    }),
   },
   inputContainer: {
     marginBottom: 20,
@@ -385,32 +332,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   input: {
-    width: '100%',
-    height: 45,
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
-    paddingHorizontal: 12,
+    padding: 12,
     fontSize: 16,
-    backgroundColor: '#ffffff',
-    color: '#000000',
+    backgroundColor: '#f8f9fa',
   },
   passwordContainer: {
-    width: '100%',
-    height: 45,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f8f9fa',
   },
   passwordInput: {
     flex: 1,
-    height: '100%',
-    paddingHorizontal: 12,
+    padding: 12,
     fontSize: 16,
-    color: '#000000',
   },
   eyeIcon: {
     padding: 10,
@@ -456,13 +396,6 @@ const styles = StyleSheet.create({
   },
   accountTypeTextActive: {
     color: '#fff',
-  },
-  webInput: {
-    outlineStyle: 'none',
-    outline: 'none',
-    WebkitAppearance: 'none',
-    MozAppearance: 'none',
-    appearance: 'none',
   },
 });
 

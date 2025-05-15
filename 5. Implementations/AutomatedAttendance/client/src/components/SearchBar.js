@@ -7,7 +7,6 @@ import {
   TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, shadows, spacing, borderRadius } from '../config/theme';
 
 const SearchBar = ({
   searchValue,
@@ -21,18 +20,13 @@ const SearchBar = ({
   return (
     <View style={styles.searchContainer}>
       <View style={styles.searchInputContainer}>
-        <Ionicons 
-          name="search" 
-          size={20} 
-          color={colors.text.secondary} 
-          style={styles.searchIcon} 
-        />
+        <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
           placeholder={searchPlaceholder}
           value={searchValue}
           onChangeText={onSearchChange}
-          placeholderTextColor={colors.text.disabled}
+          placeholderTextColor="#666"
         />
       </View>
       {showCreateButton && (
@@ -40,7 +34,7 @@ const SearchBar = ({
           style={styles.createButton}
           onPress={onCreatePress}
         >
-          <Ionicons name={createButtonIcon} size={20} color={colors.text.inverse} />
+          <Ionicons name={createButtonIcon} size={20} color="#fff" />
           <Text style={styles.createButtonText}>{createButtonText}</Text>
         </TouchableOpacity>
       )}
@@ -52,43 +46,55 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
+    gap: 10,
+    marginBottom: 20,
   },
   searchInputContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    height: 44,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadows.small,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 40,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   searchIcon: {
-    marginRight: spacing.sm,
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    ...typography.body2,
-    color: colors.text.primary,
+    fontSize: 14,
+    color: '#333',
   },
   createButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    height: 44,
-    ...shadows.small,
+    backgroundColor: '#4CAF50',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 40,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   createButtonText: {
-    color: colors.text.inverse,
-    ...typography.body2,
+    color: '#fff',
+    fontSize: 14,
     fontWeight: '600',
-    marginLeft: spacing.xs,
+    marginLeft: 6,
   },
 });
 

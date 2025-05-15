@@ -5,6 +5,9 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
+  ScrollView,
+  Platform,
+  Modal
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,6 +17,16 @@ import CustomAlert from '../../components/CustomAlert';
 import CustomModal from '../../components/Modal';
 import { API_URL, endpoints } from '../../config/api';
 import { ADMIN_CREDENTIALS } from '../../config/auth';
+
+// Days of the week for dropdown
+const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+// Validate time input (HH:MM AM/PM format)
+const validateTimeInput = (value) => {
+  // Pattern to validate HH:MM AM/PM format
+  const pattern = /^(0?[1-9]|1[0-2]):([0-5][0-9])\s?(AM|PM|am|pm)$/;
+  return pattern.test(value);
+};
 
 // Internal InstructorSearchField component
 const InstructorSearchField = ({ value, onChange, error }) => {
@@ -120,6 +133,153 @@ const InstructorSearchField = ({ value, onChange, error }) => {
   );
 };
 
+// Component for Schedule input
+const ScheduleInput = ({ schedules, onChange }) => {
+  const [activeScheduleIndex, setActiveScheduleIndex] = useState(0);
+  const [showDayModal, setShowDayModal] = useState(false);
+
+  // Add a new empty schedule
+  const addSchedule = () => {
+    const newSchedule = {
+      day: 'Monday',
+      startTime: '8:00 AM',
+      endTime: '9:30 AM'
+    };
+    onChange([...schedules, newSchedule]);
+  };
+
+  // Remove a schedule at specific index
+  const removeSchedule = (index) => {
+    const updatedSchedules = [...schedules];
+    updatedSchedules.splice(index, 1);
+    onChange(updatedSchedules);
+  };
+
+  // Update a schedule at specific index
+  const updateSchedule = (index, field, value) => {
+    const updatedSchedules = [...schedules];
+    updatedSchedules[index] = {
+      ...updatedSchedules[index],
+      [field]: value
+    };
+    onChange(updatedSchedules);
+  };
+
+  // Day Selection Modal
+  const DaySelectionModal = () => (
+    <Modal
+      visible={showDayModal}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={() => setShowDayModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.dayModalContent}>
+          <Text style={styles.dayModalTitle}>Select Day</Text>
+          
+          {DAYS_OF_WEEK.map((day) => (
+            <TouchableOpacity
+              key={day}
+              style={styles.dayModalItem}
+              onPress={() => {
+                updateSchedule(activeScheduleIndex, 'day', day);
+                setShowDayModal(false);
+              }}
+            >
+              <Text style={styles.dayModalItemText}>{day}</Text>
+            </TouchableOpacity>
+          ))}
+          
+          <TouchableOpacity
+            style={styles.dayModalCancelButton}
+            onPress={() => setShowDayModal(false)}
+          >
+            <Text style={styles.dayModalCancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  return (
+    <View style={styles.schedulesContainer}>
+      <Text style={styles.sectionLabel}>Schedules</Text>
+      
+      {schedules.map((schedule, index) => (
+        <View key={index} style={styles.scheduleItem}>
+          <View style={styles.scheduleRow}>
+            {/* Day Selection */}
+            <View style={styles.scheduleField}>
+              <Text style={styles.fieldLabel}>Day</Text>
+              <TouchableOpacity 
+                style={styles.dropdownButton}
+                onPress={() => {
+                  setActiveScheduleIndex(index);
+                  setShowDayModal(true);
+                }}
+              >
+                <Text>{schedule.day}</Text>
+                <Ionicons name="chevron-down" size={16} color="#333" />
+              </TouchableOpacity>
+            </View>
+            
+            {/* Start Time */}
+            <View style={styles.scheduleField}>
+              <Text style={styles.fieldLabel}>Start Time (HH:MM AM/PM)</Text>
+              <TextInput
+                style={[
+                  styles.timeInput,
+                  !validateTimeInput(schedule.startTime) && styles.inputError
+                ]}
+                value={schedule.startTime}
+                onChangeText={(text) => updateSchedule(index, 'startTime', text)}
+                placeholder="8:00 AM"
+                maxLength={8}
+                keyboardType="default"
+              />
+            </View>
+            
+            {/* End Time */}
+            <View style={styles.scheduleField}>
+              <Text style={styles.fieldLabel}>End Time (HH:MM AM/PM)</Text>
+              <TextInput
+                style={[
+                  styles.timeInput,
+                  !validateTimeInput(schedule.endTime) && styles.inputError
+                ]}
+                value={schedule.endTime}
+                onChangeText={(text) => updateSchedule(index, 'endTime', text)}
+                placeholder="9:30 AM"
+                maxLength={8}
+                keyboardType="default"
+              />
+            </View>
+            
+            {/* Remove button */}
+            <TouchableOpacity
+              style={styles.removeButton}
+              onPress={() => removeSchedule(index)}
+            >
+              <Ionicons name="trash-outline" size={18} color="#dc3545" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      ))}
+      
+      <TouchableOpacity
+        style={styles.addScheduleButton}
+        onPress={addSchedule}
+      >
+        <Ionicons name="add-circle-outline" size={18} color="#fff" />
+        <Text style={styles.addButtonText}>Add Schedule</Text>
+      </TouchableOpacity>
+      
+      {/* Day Selection Modal */}
+      <DaySelectionModal />
+    </View>
+  );
+};
+
 const Courses = () => {
   const navigation = useNavigation();
   const [searchQuery, setSearchQuery] = useState('');
@@ -151,6 +311,38 @@ const Courses = () => {
       value: '',
       error: '',
       required: true
+    },
+    {
+      key: 'room',
+      label: 'Room',
+      type: 'text',
+      value: '',
+      error: '',
+      required: false
+    },
+    {
+      key: 'program',
+      label: 'Program',
+      type: 'text',
+      value: '',
+      error: '',
+      required: false
+    },
+    {
+      key: 'yearSection',
+      label: 'Year & Section',
+      type: 'text',
+      value: '',
+      error: '',
+      required: false
+    },
+    {
+      key: 'schedules',
+      label: 'Schedules',
+      type: 'schedules',
+      value: [{ day: 'Monday', startTime: '8:00 AM', endTime: '9:30 AM' }],
+      error: '',
+      required: false
     }
   ]);
   const [alert, setAlert] = useState({
@@ -164,10 +356,10 @@ const Courses = () => {
   });
 
   const courseTableHeaders = [
-    { key: 'courseCode', label: 'Course Code', width: 120 },
-    { key: 'courseName', label: 'Course Name', flex: 1.5 },
-    { key: 'instructor', label: 'Instructor', flex: 1 },
-    { key: 'actions', label: 'Actions', width: 100 }
+    { key: 'courseCode', label: 'Course Code', width: 105 },
+    { key: 'instructor', label: 'Instructor', width: 110 },
+    { key: 'room', label: 'Room', width: 65 },
+    { key: 'actions', label: 'Actions', width: 65 }
   ];
 
   const actionButtons = [
@@ -296,15 +488,74 @@ const Courses = () => {
 
   const handleCreateCourse = () => {
     setSelectedCourse(null);
+    // Reset form fields
+    const resetFields = modalFields.map(field => ({
+      ...field,
+      value: field.key === 'schedules' 
+        ? [{ day: 'Monday', startTime: '8:00 AM', endTime: '9:30 AM' }] 
+        : ''
+    }));
+    setModalFields(resetFields);
     setIsModalVisible(true);
   };
 
   const handleEditCourse = (course) => {
     setSelectedCourse(course);
-    const updatedFields = modalFields.map(field => ({
-      ...field,
-      value: course[field.key] || ''
-    }));
+    const updatedFields = modalFields.map(field => {
+      if (field.key === 'schedules') {
+        // Convert existing schedules to AM/PM format if needed
+        let schedules = course.schedules && course.schedules.length 
+          ? [...course.schedules] 
+          : [{ day: 'Monday', startTime: '8:00 AM', endTime: '9:30 AM' }];
+        
+        // Convert time format if needed
+        schedules = schedules.map(schedule => {
+          let startTime = schedule.startTime;
+          let endTime = schedule.endTime;
+          
+          // Convert 24-hour format to 12-hour AM/PM if needed
+          if (startTime && !startTime.includes('AM') && !startTime.includes('PM')) {
+            const [hours, minutes] = startTime.split(':');
+            const hour = parseInt(hours);
+            if (hour < 12) {
+              startTime = `${hour}:${minutes} AM`;
+            } else if (hour === 12) {
+              startTime = `12:${minutes} PM`;
+            } else {
+              startTime = `${hour - 12}:${minutes} PM`;
+            }
+          }
+          
+          if (endTime && !endTime.includes('AM') && !endTime.includes('PM')) {
+            const [hours, minutes] = endTime.split(':');
+            const hour = parseInt(hours);
+            if (hour < 12) {
+              endTime = `${hour}:${minutes} AM`;
+            } else if (hour === 12) {
+              endTime = `12:${minutes} PM`;
+            } else {
+              endTime = `${hour - 12}:${minutes} PM`;
+            }
+          }
+          
+          return {
+            ...schedule,
+            startTime,
+            endTime
+          };
+        });
+        
+        return {
+          ...field,
+          value: schedules
+        };
+      }
+      
+      return {
+        ...field,
+        value: course[field.key] || ''
+      };
+    });
     setModalFields(updatedFields);
     setIsModalVisible(true);
   };
@@ -327,6 +578,15 @@ const Courses = () => {
       const instructorId = typeof instructorData === 'object' ? instructorData.idNumber : instructorData;
       const instructorName = typeof instructorData === 'object' ? instructorData.name : instructorData;
 
+      // Validate schedules
+      if (courseData.schedules && courseData.schedules.length > 0) {
+        for (const schedule of courseData.schedules) {
+          if (!validateTimeInput(schedule.startTime) || !validateTimeInput(schedule.endTime)) {
+            throw new Error('Please correct time formats in schedules (HH:MM AM/PM)');
+          }
+        }
+      }
+
       const response = await fetch(`${API_URL}${endpoint}`, {
         method,
         headers: {
@@ -337,7 +597,11 @@ const Courses = () => {
         body: JSON.stringify({
           courseCode: courseData.courseCode,
           courseName: courseData.courseName,
-          instructor: instructorId // Use instructor ID
+          instructor: instructorId,
+          room: courseData.room,
+          program: courseData.program,
+          yearSection: courseData.yearSection,
+          schedules: courseData.schedules
         })
       });
 
@@ -427,6 +691,15 @@ const Courses = () => {
       );
     }
 
+    if (field.type === 'schedules') {
+      return (
+        <ScheduleInput
+          schedules={value}
+          onChange={onChange}
+        />
+      );
+    }
+
     return (
       <TextInput
         style={[styles.input, error && styles.inputError]}
@@ -453,7 +726,7 @@ const Courses = () => {
           actionButtons={actionButtons}
           emptyMessage={loading ? "Loading courses..." : "No courses found"}
           searchValue={searchQuery}
-          searchFields={['courseCode', 'courseName', 'instructor']}
+          searchFields={['courseCode', 'instructor', 'room']}
         />
       </View>
 
@@ -550,6 +823,111 @@ const styles = StyleSheet.create({
   },
   inputError: {
     borderColor: '#dc3545',
+  },
+  // Schedule input styles
+  schedulesContainer: {
+    marginTop: 15,
+    marginBottom: 15,
+  },
+  sectionLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  scheduleItem: {
+    marginBottom: 15,
+    backgroundColor: '#f7f7f7',
+    borderRadius: 8,
+    padding: 10,
+  },
+  scheduleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  scheduleField: {
+    flex: 1,
+    marginRight: 10,
+    position: 'relative',
+    zIndex: 1,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 5,
+  },
+  dropdownButton: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 10,
+    backgroundColor: '#fff',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  timeInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 10,
+    backgroundColor: '#fff',
+  },
+  removeButton: {
+    padding: 10,
+    alignSelf: 'flex-end',
+  },
+  addScheduleButton: {
+    backgroundColor: '#4CAF50',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  addButtonText: {
+    color: '#fff',
+    marginLeft: 5,
+    fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dayModalContent: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 10,
+    width: '80%',
+    maxHeight: '80%',
+  },
+  dayModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  dayModalItem: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  dayModalItemText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  dayModalCancelButton: {
+    backgroundColor: '#dc3545',
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  dayModalCancelText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });
 

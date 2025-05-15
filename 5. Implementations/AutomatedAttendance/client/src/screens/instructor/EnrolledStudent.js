@@ -8,6 +8,7 @@ import SearchBar from '../../components/SearchBar';
 import CustomModal from '../../components/Modal';
 import CustomAlert from '../../components/CustomAlert';
 import { API_URL } from '../../config/api';
+import { handleExportReport } from './ExportReport';
 
 // Internal StudentSearchField component
 const StudentSearchField = ({ value, onChange, error }) => {
@@ -122,6 +123,12 @@ const EnrolledStudent = () => {
     type: 'success',
     message: '',
   });
+  const [courseDetails, setCourseDetails] = useState({
+    courseCode: '',
+    courseName: '',
+    instructor: '',
+    room: ''
+  });
 
   // Fetch enrolled students
   const fetchEnrolledStudents = async () => {
@@ -134,12 +141,28 @@ const EnrolledStudent = () => {
         const data = await response.json();
         console.log('Enrolled students API Response data:', data);
         setEnrolledStudents(data.students || []);
+        setCourseDetails({
+          courseCode: data.courseCode,
+          courseName: data.courseName,
+          instructor: data.instructor,
+          room: data.room
+        });
       } else {
         const errorText = await response.text();
         console.error('Error fetching enrolled students:', errorText);
+        setAlert({
+          visible: true,
+          type: 'error',
+          message: 'Failed to fetch enrolled students'
+        });
       }
     } catch (error) {
       console.error('Error in fetchEnrolledStudents:', error);
+      setAlert({
+        visible: true,
+        type: 'error',
+        message: 'Failed to fetch enrolled students'
+      });
     }
   };
 
@@ -160,11 +183,26 @@ const EnrolledStudent = () => {
     }
   ];
 
-  // Define table headers
+  // Define table headers with widths and alignment
   const headers = [
-    { label: 'ID Number', key: 'idNumber' },
-    { label: 'Name', key: 'fullName' },
-    { label: 'Actions', key: 'actions' }
+    { 
+      label: 'ID Number', 
+      key: 'idNumber',
+      width: '30%',
+      align: 'left'
+    },
+    { 
+      label: 'Name', 
+      key: 'fullName',
+      width: '50%',
+      align: 'left'
+    },
+    { 
+      label: 'Actions', 
+      key: 'actions',
+      width: '20%',
+      align: 'center'
+    }
   ];
 
   // Action buttons for the table
@@ -172,6 +210,7 @@ const EnrolledStudent = () => {
     {
       icon: 'trash-outline',
       color: '#f44336',
+      size: 22,
       onPress: (student) => {
         handleDeleteStudent(student);
       }
@@ -278,6 +317,46 @@ const EnrolledStudent = () => {
     }
   };
 
+  const handleExport = async () => {
+    if (!courseDetails.courseCode || !courseDetails.courseName) {
+      setAlert({
+        visible: true,
+        type: 'error',
+        message: 'Course details not available. Please try again.'
+      });
+      return;
+    }
+
+    try {
+      await handleExportReport(
+        courseId,
+        courseDetails.courseCode,
+        courseDetails.courseName,
+        (message) => {
+          setAlert({
+            visible: true,
+            type: 'success',
+            message: message
+          });
+        },
+        (error) => {
+          setAlert({
+            visible: true,
+            type: 'error',
+            message: error
+          });
+        }
+      );
+    } catch (error) {
+      console.error('Export error:', error);
+      setAlert({
+        visible: true,
+        type: 'error',
+        message: 'Failed to export report'
+      });
+    }
+  };
+
   const renderModalField = (field, value, onChange, error) => {
     switch (field.type) {
       case 'student-search':
@@ -304,20 +383,41 @@ const EnrolledStudent = () => {
       
       <View style={styles.content}>
         <View style={styles.actionBar}>
+          <View style={styles.searchContainer}>
+            <SearchBar
+              searchValue={searchValue}
+              onSearchChange={setSearchValue}
+              searchPlaceholder="Search by ID number or name..."
+              showCreateButton={false}
+            />
+          </View>
           <TouchableOpacity
-            style={styles.addButton}
+            style={[styles.actionButton, styles.exportButton]}
+            onPress={handleExport}
+          >
+            <Text style={styles.actionButtonText}>Export</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.addButton]}
             onPress={handleAddStudent}
           >
-            <Ionicons name="add" size={24} color="#fff" />
-            <Text style={styles.addButtonText}>Add Student</Text>
+            <Text style={styles.actionButtonText}>Add</Text>
           </TouchableOpacity>
         </View>
 
-        <Table
-          headers={headers}
-          data={enrolledStudents}
-          actionButtons={actionButtons}
-        />
+        <View style={styles.tableContainer}>
+          <Table
+            headers={headers}
+            data={enrolledStudents.filter(student => 
+              student.idNumber.toLowerCase().includes(searchValue.toLowerCase()) ||
+              student.fullName.toLowerCase().includes(searchValue.toLowerCase())
+            )}
+            actionButtons={actionButtons}
+            rowStyle={styles.tableRow}
+            headerStyle={styles.tableHeader}
+            cellStyle={styles.tableCell}
+          />
+        </View>
       </View>
 
       <CustomModal
@@ -351,21 +451,54 @@ const styles = StyleSheet.create({
   },
   actionBar: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    alignItems: 'center',
     marginBottom: 20,
+    gap: 10,
+    height: 40,
+  },
+  searchContainer: {
+    flex: 1,
+    height: 40,
+  },
+  actionButton: {
+    height: 40,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    minWidth: 75,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#165973',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 5,
   },
-  addButtonText: {
+  exportButton: {
+    backgroundColor: '#28a745',
+  },
+  actionButtonText: {
     color: '#fff',
-    marginLeft: 5,
-    fontSize: 16,
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  tableContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    elevation: 2,
+    overflow: 'hidden',
+  },
+  tableHeader: {
+    backgroundColor: '#f7f7f7',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  tableRow: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  tableCell: {
+    paddingHorizontal: 15,
   },
   searchFieldContainer: {
     position: 'relative',

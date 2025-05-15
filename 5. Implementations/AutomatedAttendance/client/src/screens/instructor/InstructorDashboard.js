@@ -6,25 +6,20 @@ import {
   SafeAreaView,
   ScrollView,
   Dimensions,
-  Alert,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import InstructorTabBar from '../../components/InstructorTabBar';
 import Header from '../../components/Header';
-import StatisticsChart from '../../components/StatisticsChart';
 import TrendChart from '../../components/TrendChart';
 import InstructorCourses from './InstructorCourses';
 import QRCodeGenerator from './QRCode';
 import { API_URL } from '../../config/api';
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
 const InstructorDashboard = () => {
   const navigation = useNavigation();
-  const route = useRoute();
-  const instructorData = route.params?.instructorData || {};
   const [activeTab, setActiveTab] = useState('dashboard');
   const [statistics, setStatistics] = useState({
     totalStudents: 0,
@@ -39,13 +34,6 @@ const InstructorDashboard = () => {
         data: [0],
       },
     ],
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const [alertConfig, setAlertConfig] = useState({
-    visible: false,
-    title: '',
-    message: '',
-    type: 'error'
   });
 
   useEffect(() => {
@@ -101,52 +89,8 @@ const InstructorDashboard = () => {
     }
   };
 
-  const showAlert = (title, message, type = 'error') => {
-    Alert.alert(title, message);
-  };
-
-  const handleLogout = async () => {
-    // Show confirmation dialog
-    Alert.alert(
-      "Confirm Logout",
-      "Are you sure you want to log out?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel"
-        },
-        {
-          text: "Logout",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              setIsLoading(true);
-              
-              const response = await axios.post(`${API_URL}/api/instructors/logout`, {
-                instructorId: instructorData.idNumber
-              });
-
-              if (response.data.success) {
-                // Clear AsyncStorage
-                await AsyncStorage.multiRemove(['instructorId', 'instructorName', 'userType']);
-                
-                Alert.alert('Success', 'Logged out successfully');
-                setTimeout(() => {
-                  navigation.replace('Login');
-                }, 1500);
-              } else {
-                throw new Error(response.data.message || 'Logout failed');
-              }
-            } catch (error) {
-              Alert.alert('Error', error.response?.data?.message || 'Failed to logout');
-            } finally {
-              setIsLoading(false);
-            }
-          }
-        }
-      ],
-      { cancelable: true }
-    );
+  const handleLogout = () => {
+    navigation.replace('RoleSelection');
   };
 
   const handleTabPress = (tabKey) => {
@@ -164,34 +108,32 @@ const InstructorDashboard = () => {
                 title="Attendance Rate (Last 7 Days)"
               />
             </View>
-            <StatisticsChart
-              stats={[
-                {
-                  icon: 'people-outline',
-                  value: statistics.totalStudents,
-                  label: 'Total Students',
-                  backgroundColor: '#165973',
-                },
-                {
-                  icon: 'book-outline',
-                  value: statistics.totalCourses,
-                  label: 'Total Courses',
-                  backgroundColor: '#7FB3D1',
-                },
-                {
-                  icon: 'school-outline',
-                  value: statistics.activeClasses,
-                  label: 'Active Classes',
-                  backgroundColor: '#165973',
-                },
-                {
-                  icon: 'stats-chart',
-                  value: `${statistics.attendanceRate}%`,
-                  label: 'Attendance Rate',
-                  backgroundColor: '#7FB3D1',
-                }
-              ]}
-            />
+            <View style={styles.statsContainer}>
+              <View style={styles.statsRow}>
+                <View style={[styles.statCard, { backgroundColor: '#165973' }]}>
+                  <Ionicons name="people-outline" size={28} color="#fff" />
+                  <Text style={styles.statValue}>{statistics.totalStudents}</Text>
+                  <Text style={styles.statLabel}>Total Students</Text>
+                </View>
+                <View style={[styles.statCard, { backgroundColor: '#7FB3D1' }]}>
+                  <Ionicons name="book-outline" size={28} color="#fff" />
+                  <Text style={styles.statValue}>{statistics.totalCourses}</Text>
+                  <Text style={styles.statLabel}>Total Courses</Text>
+                </View>
+              </View>
+              <View style={styles.statsRow}>
+                <View style={[styles.statCard, { backgroundColor: '#165973' }]}>
+                  <Ionicons name="school-outline" size={28} color="#fff" />
+                  <Text style={styles.statValue}>{statistics.activeClasses}</Text>
+                  <Text style={styles.statLabel}>Active Classes</Text>
+                </View>
+                <View style={[styles.statCard, { backgroundColor: '#7FB3D1' }]}>
+                  <Ionicons name="stats-chart" size={28} color="#fff" />
+                  <Text style={styles.statValue}>{statistics.attendanceRate}%</Text>
+                  <Text style={styles.statLabel}>Attendance Rate</Text>
+                </View>
+              </View>
+            </View>
           </ScrollView>
         );
       case 'courses':
@@ -243,7 +185,42 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingRight: 0,
     marginBottom: 20,
-    marginRight:-2,
+    marginRight: -2,
+  },
+  statsContainer: {
+    padding: 16,
+    gap: 20,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 20,
+  },
+  statCard: {
+    flex: 1,
+    padding: 15,
+    borderRadius: 12,
+    minHeight: 120,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  statLabel: {
+    fontSize: 14,
+    color: '#fff',
+    opacity: 0.9,
   },
 });
 

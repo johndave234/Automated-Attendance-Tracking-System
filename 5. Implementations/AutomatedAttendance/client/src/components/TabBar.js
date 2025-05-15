@@ -6,13 +6,13 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, typography, shadows, spacing, borderRadius } from '../config/theme';
 
 const TabBar = ({
   activeTab = 'dashboard',
   onTabPress,
+  tabs
 }) => {
-  const tabs = [
+  const defaultTabs = [
     {
       key: 'dashboard',
       label: 'Dashboard',
@@ -33,23 +33,23 @@ const TabBar = ({
     }
   ];
 
+  const tabsToRender = tabs || defaultTabs;
+
   return (
     <View style={styles.container}>
-      {tabs.map((tab) => {
+      {tabsToRender.map((tab) => {
         const isActive = activeTab === tab.key;
         return (
           <TouchableOpacity
             key={tab.key}
-            style={[styles.tab, isActive && styles.activeTab]}
+            style={styles.tab}
             onPress={() => onTabPress(tab.key)}
           >
-            <View style={[styles.iconContainer, isActive && styles.activeIconContainer]}>
-              <Ionicons
-                name={isActive ? tab.activeIcon : tab.icon}
-                size={22}
-                color={isActive ? colors.primary : colors.text.secondary}
-              />
-            </View>
+            <Ionicons
+              name={isActive ? tab.activeIcon : tab.icon}
+              size={24}
+              color={isActive ? '#165973' : '#666'}
+            />
             <Text style={[
               styles.tabLabel,
               isActive && styles.activeTabLabel
@@ -66,37 +66,34 @@ const TabBar = ({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
+    backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    height: 65,
-    paddingBottom: spacing.xs,
-    paddingTop: spacing.xs,
-    ...shadows.small,
+    borderTopColor: '#eee',
+    height: 60,
+    paddingBottom: 5,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   tab: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  iconContainer: {
-    padding: spacing.xs,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.xs,
-  },
-  activeIconContainer: {
-    backgroundColor: colors.primary + '15', // 15% opacity
+    paddingTop: 5,
   },
   tabLabel: {
-    ...typography.caption,
-    color: colors.text.secondary,
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
   },
   activeTabLabel: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  activeTab: {
-    borderRadius: borderRadius.sm,
+    color: '#165973',
+    fontWeight: '500',
   },
 });
 
