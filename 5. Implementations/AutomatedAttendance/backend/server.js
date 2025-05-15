@@ -86,7 +86,7 @@ app.use((err, req, res, next) => {
 // Server configuration
 const PORT = 5001;
 const HOST = '0.0.0.0';  // This allows connections from any IP address
-const LOCAL_IP = '192.168.254.143'; // Your actual IP address
+const LOCAL_IP = '192.168.254.197'; // Your actual IP address
 
 // Start server and connect to database
 const startServer = async () => {

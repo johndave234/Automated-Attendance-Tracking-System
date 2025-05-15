@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 
 // API Configuration
-const LOCAL_IP = '192.168.254.143'; // Your computer's actual IP address
+const LOCAL_IP = '192.168.254.197'; // Your computer's actual IP address
 const LOCALHOST = 'localhost';
 
 // Get the correct API URL based on platform
