@@ -374,60 +374,70 @@ const EnrolledStudent = () => {
 
   return (
     <View style={styles.container}>
-      <Header
-        title="Course Details"
-        subtitle="View enrolled students"
+      <Header 
+        title={`${courseDetails.courseCode} - Students`}
         showBackButton
         onBackPress={() => navigation.goBack()}
       />
       
       <View style={styles.content}>
-        <View style={styles.actionBar}>
-          <View style={styles.searchContainer}>
+        <View style={styles.courseInfoContainer}>
+          <Text style={styles.courseName}>{courseDetails.courseName}</Text>
+          <View style={styles.courseDetailsRow}>
+            <View style={styles.courseDetailItem}>
+              <Ionicons name="location-outline" size={16} color="#666" />
+              <Text style={styles.courseDetailText}>
+                {courseDetails.room || 'No room assigned'}
+              </Text>
+            </View>
+            <View style={styles.courseDetailItem}>
+              <Ionicons name="people-outline" size={16} color="#666" />
+              <Text style={styles.courseDetailText}>
+                {enrolledStudents.length} {enrolledStudents.length === 1 ? 'Student' : 'Students'}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.actionsContainer}>
+          <View style={styles.searchBarWrapper}>
             <SearchBar
               searchValue={searchValue}
               onSearchChange={setSearchValue}
-              searchPlaceholder="Search by ID number or name..."
-              showCreateButton={false}
+              searchPlaceholder="Search students..."
+              showCreateButton={true}
+              createButtonText="Add Student"
+              onCreatePress={handleAddStudent}
             />
           </View>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.exportButton]}
+          
+          <TouchableOpacity 
+            style={styles.exportButton}
             onPress={handleExport}
           >
-            <Text style={styles.actionButtonText}>Export</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.addButton]}
-            onPress={handleAddStudent}
-          >
-            <Text style={styles.actionButtonText}>Add</Text>
+            <Ionicons name="download-outline" size={20} color="#fff" />
+            <Text style={styles.exportButtonText}>Export</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.tableContainer}>
-          <Table
-            headers={headers}
-            data={enrolledStudents.filter(student => 
-              student.idNumber.toLowerCase().includes(searchValue.toLowerCase()) ||
-              student.fullName.toLowerCase().includes(searchValue.toLowerCase())
-            )}
-            actionButtons={actionButtons}
-            rowStyle={styles.tableRow}
-            headerStyle={styles.tableHeader}
-            cellStyle={styles.tableCell}
-          />
-        </View>
+        <Table
+          headers={headers}
+          data={enrolledStudents.filter(student => 
+            student.idNumber.toLowerCase().includes(searchValue.toLowerCase()) ||
+            student.fullName.toLowerCase().includes(searchValue.toLowerCase())
+          )}
+          actionButtons={actionButtons}
+          emptyMessage="No students enrolled in this course"
+        />
       </View>
 
       <CustomModal
         visible={isModalVisible}
-        title="Add Student"
-        fields={modalFields}
         onClose={() => setIsModalVisible(false)}
+        title="Add Student"
         onSave={handleSaveStudent}
         renderField={renderModalField}
-        isLoading={isLoading}
+        fields={modalFields}
       />
 
       <CustomAlert
@@ -449,60 +459,68 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
-  actionBar: {
+  courseInfoContainer: {
+    marginBottom: 20,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 15,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 2,
+  },
+  courseName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#165973',
+  },
+  courseDetailsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
-    gap: 10,
-    height: 40,
   },
-  searchContainer: {
-    flex: 1,
-    height: 40,
-  },
-  actionButton: {
-    height: 40,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    minWidth: 75,
+  courseDetailItem: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    marginRight: 20,
   },
-  addButton: {
-    backgroundColor: '#165973',
+  courseDetailText: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 5,
+  },
+  actionsContainer: {
+    flexDirection: 'column',
+    marginBottom: 20,
+  },
+  searchBarWrapper: {
+    marginBottom: 10,
   },
   exportButton: {
     backgroundColor: '#28a745',
+    padding: 10,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 15,
+    alignSelf: 'flex-end',
+    width: 120,
   },
-  actionButtonText: {
+  exportButtonText: {
     color: '#fff',
     fontSize: 15,
     fontWeight: '500',
-  },
-  tableContainer: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    elevation: 2,
-    overflow: 'hidden',
-  },
-  tableHeader: {
-    backgroundColor: '#f7f7f7',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  tableRow: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  tableCell: {
-    paddingHorizontal: 15,
+    marginLeft: 5,
   },
   searchFieldContainer: {
     position: 'relative',
     zIndex: 1,
+    flex: 1,
   },
   dropdown: {
     position: 'absolute',
@@ -510,28 +528,41 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: '#fff',
-    borderRadius: 5,
-    elevation: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
     maxHeight: 200,
     zIndex: 2,
-  },
-  dropdownText: {
-    padding: 10,
-    color: '#666',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   dropdownItem: {
-    padding: 10,
+    flexDirection: 'row',
+    padding: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
   dropdownItemId: {
+    width: 80,
     fontSize: 14,
     color: '#666',
+    fontWeight: '500',
   },
   dropdownItemName: {
-    fontSize: 16,
+    flex: 1,
+    fontSize: 14,
     color: '#333',
-    marginTop: 2,
+  },
+  dropdownText: {
+    padding: 12,
+    fontSize: 14,
+    color: '#666',
   },
 });
 

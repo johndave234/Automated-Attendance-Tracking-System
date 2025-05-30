@@ -6,6 +6,11 @@ const generateEnrollmentCode = () => {
     return crypto.randomBytes(4).toString('hex').toUpperCase();
 };
 
+// Function to generate a random attendance code
+const generateAttendanceCode = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit number
+};
+
 const courseSchema = new mongoose.Schema({
     courseCode: {
         type: String,
@@ -20,15 +25,59 @@ const courseSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    instructorName: {
+        type: String,
+        default: ''
+    },
     enrollmentCode: {
         type: String,
         unique: true,
         default: generateEnrollmentCode
     },
+    attendanceCode: {
+        type: String,
+        default: generateAttendanceCode
+    },
+    schedules: {
+        type: [{
+            day: {
+                type: String,
+                enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+                required: true
+            },
+            startTime: {
+                type: String,
+                required: true
+            },
+            endTime: {
+                type: String,
+                required: true
+            }
+        }],
+        default: []
+    },
+    room: {
+        type: String,
+        default: ''
+    },
+    program: {
+        type: String,
+        default: ''
+    },
+    yearSection: {
+        type: String,
+        default: ''
+    },
     students: {
-        type: [String],
+        type: [String], // Store student ID numbers as strings
         default: [],
-        ref: 'Student'
+        validate: {
+            validator: function(v) {
+                // Ensure all values are strings and not empty
+                return v.every(id => typeof id === 'string' && id.length > 0);
+            },
+            message: 'Student IDs must be valid strings'
+        }
     },
     createdAt: {
         type: Date,

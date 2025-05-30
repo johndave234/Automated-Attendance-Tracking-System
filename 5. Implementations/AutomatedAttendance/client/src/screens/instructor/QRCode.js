@@ -28,7 +28,7 @@ const QRCodeGenerator = () => {
     type: 'error',
     message: ''
   });
-  const [timeLeft, setTimeLeft] = useState(120); // 2 minutes in seconds
+  const [timeLeft, setTimeLeft] = useState(1800); // 30 minutes in seconds
   const qrRefreshInterval = useRef(null);
   const qrValueRef = useRef(null); // Store the QR value
   const [qrRefreshTrigger, setQrRefreshTrigger] = useState(0); // Force refresh when needed
@@ -158,12 +158,12 @@ const QRCodeGenerator = () => {
   };
 
   const generateQRValue = (course, session) => {
-    // Add expiration time (2 minutes from now)
+    // Add expiration time (30 minutes from now)
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + 2 * 60 * 1000); // 2 minutes
+    const expiresAt = new Date(now.getTime() + 30 * 60 * 1000); // 30 minutes
     
-    // Reset timer to 2 minutes
-    setTimeLeft(120);
+    // Reset timer to 30 minutes
+    setTimeLeft(1800);
     
     // Ensure session ID is prominently included for the new system
     const qrData = {
@@ -225,7 +225,7 @@ const QRCodeGenerator = () => {
           if (prev <= 1) {
             // When time expires, regenerate QR code
             generateQRValue(selectedCourse, sessionData);
-            return 120;
+            return 1800;
           }
           return prev - 1;
         });
@@ -369,7 +369,7 @@ const QRCodeGenerator = () => {
                     <View 
                       style={[
                         styles.expirationBar, 
-                        {width: `${(timeLeft / 120) * 100}%`}
+                        {width: `${(timeLeft / 1800) * 100}%`}
                       ]} 
                     />
                   </View>

@@ -7,12 +7,13 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "test": "jest --watchAll"
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.1",
-    "@react-native-async-storage/async-storage": "1.23.1",
-    "@react-native-picker/picker": "2.9.0",
+    "@react-native-async-storage/async-storage": "^2.1.2",
+    "@react-native-picker/picker": "^2.11.0",
     "@react-navigation/native": "^6.1.9",
     "@react-navigation/native-stack": "^6.9.17",
     "axios": "^1.9.0",
@@ -22,13 +23,15 @@
     "expo": "~52.0.43",
     "expo-barcode-scanner": "^11.0.0",
     "expo-camera": "~16.0.18",
-    "expo-file-system": "~18.0.12",
+    "expo-file-system": "^18.1.10",
     "expo-image-picker": "~16.0.6",
     "expo-linear-gradient": "~14.0.2",
-    "expo-media-library": "~17.0.6",
-    "expo-sharing": "~13.0.1",
+    "expo-media-library": "^17.1.6",
+    "expo-sharing": "^13.1.5",
     "expo-status-bar": "~2.0.1",
     "express": "^5.1.0",
+    "jest": "~29.7.0",
+    "jest-expo": "~52.0.6",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.13.2",
     "react": "18.3.1",
@@ -36,20 +39,25 @@
     "react-native": "0.76.9",
     "react-native-chart-kit": "^6.12.0",
     "react-native-qrcode-svg": "^6.3.15",
-    "react-native-safe-area-context": "4.12.0",
-    "react-native-screens": "~4.4.0",
-    "react-native-svg": "15.8.0",
+    "react-native-safe-area-context": "^5.3.0",
+    "react-native-screens": "^4.10.0",
+    "react-native-svg": "^15.11.2",
     "react-native-vision-camera": "^4.6.4",
     "react-native-web": "~0.19.13",
     "use-latest-callback": "^0.2.3"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
+    "@testing-library/react-native": "^13.2.0",
     "babel-plugin-module-resolver": "^5.0.2",
-    "nodemon": "^3.1.9"
+    "nodemon": "^3.1.9",
+    "react-test-renderer": "^18.3.1"
   },
   "private": true,
   "keywords": [],
   "author": "",
-  "description": ""
+  "description": "",
+  "jest": {
+    "preset": "jest-expo"
+  }
 }

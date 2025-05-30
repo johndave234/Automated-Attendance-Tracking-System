@@ -1,13 +1,28 @@
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+require('dotenv').config();
 const connectDB = require('./config/db');
 const studentRoutes = require('./routes/studentRoutes');
 const instructorRoutes = require('./routes/instructorRoutes');
 const courseRoutes = require('./routes/courseRoutes');
 const attendanceRoutes = require('./routes/attendanceRoutes');
+const sessionAttendanceRoutes = require('./routes/sessionAttendanceRoutes');
+const os = require('os');
 
 const app = express();
+
+// Get network interfaces
+const getNetworkIP = () => {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name]) {
+            if (!iface.internal && iface.family === 'IPv4') {
+                return iface.address;
+            }
+        }
+    }
+    return '0.0.0.0';
+};
 
 // CORS configuration
 app.use(cors({
@@ -17,7 +32,7 @@ app.use(cors({
     credentials: true
 }));
 
-// Middleware for parsing JSON bodies
+// Middleware
 app.use(express.json());
 
 // Add request logging middleware
@@ -28,9 +43,9 @@ app.use((req, res, next) => {
     next();
 });
 
-// Routes
-app.get('/api/test', (req, res) => {
-    res.json({ message: 'API is working!' });
+// Basic route
+app.get('/', (req, res) => {
+    res.json({ message: 'Automated Attendance System API' });
 });
 
 // Test routes for each main endpoint
@@ -58,16 +73,13 @@ app.get('/api/courses/test', async (req, res) => {
     }
 });
 
-// API Routes
+// Routes
 app.use('/api/students', studentRoutes);
 app.use('/api/instructors', instructorRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/attendance', attendanceRoutes);
-
-// Test endpoint
-app.get('/test', (req, res) => {
-    res.json({ message: 'Server is running' });
-});
+app.use('/api/sessions', sessionAttendanceRoutes);
+app.use('/api/session-attendance', sessionAttendanceRoutes);
 
 // Handle 404
 app.use((req, res) => {
@@ -84,9 +96,9 @@ app.use((err, req, res, next) => {
 });
 
 // Server configuration
-const PORT = 5001;
-const HOST = '0.0.0.0';  // This allows connections from any IP address
-const LOCAL_IP = '192.168.254.147'; // Your actual IP address
+const PORT = process.env.PORT || 5001;
+const HOST = '0.0.0.0';
+const LOCAL_IP = getNetworkIP();
 
 // Start server and connect to database
 const startServer = async () => {
@@ -96,7 +108,7 @@ const startServer = async () => {
         const isConnected = await connectDB();
         
         if (!isConnected) {
-            console.error('Failed to connect to MongoDB. Exiting...');
+            console.log('Failed to connect to MongoDB. Check your connection string.');
             process.exit(1);
         }
 
@@ -118,7 +130,7 @@ const startServer = async () => {
             console.log('- GET /api/attendance/student/:studentId');
         });
     } catch (error) {
-        console.error('Server startup failed:', error);
+        console.log('Server startup failed');
         process.exit(1);
     }
 };

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Table from '../../components/Table';
@@ -12,12 +13,14 @@ import CustomAlert from '../../components/CustomAlert';
 import AccountModal from '../../components/Modal';
 import { API_URL } from '../../config/api';
 import { ADMIN_CREDENTIALS } from '../../config/auth';
+import { colors } from '../../config/theme';
 
 const Users = ({ onUpdate }) => {
   const navigation = useNavigation();
   const [searchQuery, setSearchQuery] = useState('');
   const [accounts, setAccounts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [alert, setAlert] = useState({
@@ -29,11 +32,16 @@ const Users = ({ onUpdate }) => {
     visible: false,
     accountToDelete: null
   });
+  
+  const dataModified = useRef(false);
 
   useFocusEffect(
     React.useCallback(() => {
-      fetchAccounts();
-    }, [])
+      if (!initialLoadDone || dataModified.current) {
+        fetchAccounts();
+        dataModified.current = false;
+      }
+    }, [initialLoadDone])
   );
 
   const tableHeaders = [
@@ -98,12 +106,27 @@ const Users = ({ onUpdate }) => {
       }));
 
       setAccounts([...formattedStudents, ...formattedInstructors]);
+      setInitialLoadDone(true);
       
       if (onUpdate) {
         onUpdate();
       }
-    } catch {
-      Alert.alert('Error', 'Failed to fetch accounts');
+      
+      // Show success alert
+      setAlert({
+        visible: true,
+        type: 'success',
+        message: `Successfully loaded ${formattedStudents.length} students and ${formattedInstructors.length} instructors`
+      });
+      
+    } catch (error) {
+      console.error('Error fetching accounts:', error);
+      // Use custom alert instead of Alert.alert
+      setAlert({
+        visible: true,
+        type: 'error',
+        message: 'Failed to fetch accounts!'
+      });
     } finally {
       setLoading(false);
     }
@@ -112,6 +135,7 @@ const Users = ({ onUpdate }) => {
   const handleCreatePress = () => {
     navigation.navigate('Signup', {
       onCreateSuccess: () => {
+        dataModified.current = true;
         fetchAccounts();
       }
     });
@@ -150,6 +174,7 @@ const Users = ({ onUpdate }) => {
       });
 
       if (response.ok) {
+        dataModified.current = true;
         await fetchAccounts();
         setAlert({
           visible: true,
@@ -179,14 +204,27 @@ const Users = ({ onUpdate }) => {
 
   const handleSaveAccount = async (editedAccount) => {
     try {
-      const endpoint = editedAccount.type.toLowerCase() === 'student' ? 'students' : 'instructors';
+      // Use type from selectedAccount since we removed it from the edit form
+      const endpoint = selectedAccount.type.toLowerCase() === 'student' ? 'students' : 'instructors';
       
+      // Validate required fields
+      if (!editedAccount.idNumber || !editedAccount.name) {
+        setAlert({
+          visible: true,
+          type: 'error',
+          message: 'ID Number and Name are required'
+        });
+        return;
+      }
+
       const accountToUpdate = {
         idNumber: editedAccount.idNumber,
-        fullName: editedAccount.name // Using name since that's what we display
+        fullName: editedAccount.name
       };
 
-      const response = await fetch(`${API_URL}/api/${endpoint}/${editedAccount._id}`, {
+      console.log('Updating account:', accountToUpdate);
+
+      const response = await fetch(`${API_URL}/api/${endpoint}/${selectedAccount._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -199,7 +237,8 @@ const Users = ({ onUpdate }) => {
       const responseData = await response.json();
 
       if (response.ok) {
-        fetchAccounts(); // Refresh the accounts list
+        dataModified.current = true;
+        await fetchAccounts(); // Refresh the accounts list
         setIsModalVisible(false);
         setAlert({
           visible: true,
@@ -207,11 +246,7 @@ const Users = ({ onUpdate }) => {
           message: 'Account updated successfully'
         });
       } else {
-        setAlert({
-          visible: true,
-          type: 'error',
-          message: `Failed to update account: ${responseData.message || 'Unknown error'}`
-        });
+        throw new Error(responseData.message || 'Failed to update account');
       }
     } catch (error) {
       console.error('Update error:', error);
@@ -223,6 +258,12 @@ const Users = ({ onUpdate }) => {
     }
   };
 
+  // Manual refresh function
+  const handleRefresh = () => {
+    dataModified.current = true;
+    fetchAccounts();
+  };
+
   return (
     <>
       <SearchBar
@@ -231,22 +272,44 @@ const Users = ({ onUpdate }) => {
         searchPlaceholder="Search accounts..."
         onCreatePress={handleCreatePress}
         createButtonText="Create Account"
+        onRefresh={handleRefresh}
       />
       <View style={styles.tableContainer}>
-        <Table
-          headers={tableHeaders}
-          data={accounts}
-          actionButtons={actionButtons}
-          emptyMessage={loading ? "Loading accounts..." : "No accounts found"}
-          searchValue={searchQuery}
-          searchFields={['idNumber', 'name', 'type']}
-        />
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>Loading accounts...</Text>
+          </View>
+        ) : (
+          <Table
+            headers={tableHeaders}
+            data={accounts}
+            actionButtons={actionButtons}
+            emptyMessage="No accounts found"
+            searchValue={searchQuery}
+            searchFields={['idNumber', 'name', 'type']}
+          />
+        )}
       </View>
 
       <AccountModal
         visible={isModalVisible}
         onClose={handleModalClose}
-        account={selectedAccount}
+        title="Edit Account"
+        fields={[
+          {
+            key: 'idNumber',
+            label: 'ID Number',
+            value: selectedAccount?.idNumber || '',
+            required: true
+          },
+          {
+            key: 'name',
+            label: 'Full Name',
+            value: selectedAccount?.name || '',
+            required: true
+          }
+        ]}
         onSave={handleSaveAccount}
       />
 
@@ -286,6 +349,17 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     marginBottom: 10,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: colors.text.secondary,
   }
 });
 

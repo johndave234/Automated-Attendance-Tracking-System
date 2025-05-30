@@ -12,83 +12,61 @@ const TrendChart = ({ data, title, width: customWidth, height: customHeight }) =
     }))
   };
 
-  // Determine maxY value - ensure it's at least 5 for better visualization when all values are 0
-  const maxValue = Math.max(...chartData.datasets[0].data, 5);
-  
-  const screenWidth = Dimensions.get('window').width;
-  const containerPadding = 16;
-  const chartContainerWidth = customWidth || (screenWidth - 40); // Accounting for parent padding
-  const chartWidth = chartContainerWidth - containerPadding;
+  const chartWidth = customWidth || Dimensions.get('window').width - 32;
   const chartHeight = customHeight || 220;
 
   return (
-    <View style={[styles.container, { width: chartContainerWidth }]}>
-      {title && <Text style={styles.title}>{title}</Text>}
-      <View style={styles.chartWrapper}>
-        <LineChart
-          data={chartData}
-          width={chartWidth}
-          height={chartHeight}
-          yAxisSuffix=""
-          yAxisInterval={1}
-          fromZero={true}
-          withInnerLines={true}
-          withOuterLines={true}
-          yAxisLabel=""
-          segments={5}
-          withVerticalLabels={true}
-          withHorizontalLabels={true}
-          chartConfig={{
-            backgroundColor: '#fff',
-            backgroundGradientFrom: '#fff',
-            backgroundGradientTo: '#fff',
-            decimalPlaces: 0,
-            color: (opacity = 1) => `rgba(76, 175, 80, ${opacity})`,
-            labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-            style: {
-              borderRadius: 16,
-            },
-            propsForDots: {
-              r: '5',
-              strokeWidth: '2',
-              stroke: '#4CAF50',
-              fill: '#fff'
-            },
-            propsForBackgroundLines: {
-              strokeWidth: 1,
-              stroke: "#e0e0e0",
-              strokeDasharray: "5, 5"
-            },
-            formatYLabel: (value) => Math.round(value).toString(),
-          }}
-          bezier
-          style={styles.chart}
-        />
-      </View>
+    <View style={[styles.container, { width: chartWidth }]}>
+      <Text style={styles.title}>{title}</Text>
+      <LineChart
+        data={chartData}
+        width={chartWidth - 30}  // Account for container padding
+        height={chartHeight}
+        yAxisSuffix=""
+        yAxisInterval={1}
+        chartConfig={{
+          backgroundColor: '#165973',
+          backgroundGradientFrom: '#165973',
+          backgroundGradientTo: '#1B6F8F',
+          decimalPlaces: 0,
+          color: (opacity = 1) => `rgba(184, 227, 255, ${opacity})`,
+          labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+          style: {
+            borderRadius: 16,
+          },
+          propsForDots: {
+            r: '6',
+            strokeWidth: '2',
+            stroke: '#7FB3D1',
+          },
+        }}
+        bezier
+        style={styles.chart}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
+    backgroundColor: '#165973',
     borderRadius: 12,
-    padding: 8,
-    marginBottom: 10,
-    alignItems: 'center',
+    padding: 15,
+    marginBottom: 25,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   title: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#fff',
     marginBottom: 10,
-    alignSelf: 'flex-start',
-    marginLeft: 8,
-  },
-  chartWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
   },
   chart: {
     marginVertical: 8,

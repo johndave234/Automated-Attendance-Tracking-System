@@ -18,7 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_URL } from '../config';
+import { API_URL } from '../config/api';
 import { ADMIN_CREDENTIALS } from '../config/auth';
 import { useAuth } from '../context/AuthContext';
 import CustomAlert from '../components/CustomAlert';
@@ -96,8 +96,10 @@ const Login = () => {
           ? { studentId: username.trim(), password: password.trim() }
           : { instructorId: username.trim(), password: password.trim() };
         
-        console.log(`Attempting login at: ${endpoint}`);
+        console.log(`Attempting login at: ${endpoint} with payload:`, { ...payload, password: '***' });
         const response = await axios.post(endpoint, payload, axiosConfig);
+        
+        console.log('Login response:', response.data);
         
         if (response.data.success) {
           const userData = isLikelyStudent 
@@ -110,29 +112,35 @@ const Login = () => {
                 fullName: response.data.instructor.fullName
               };
           
+          console.log(`${isLikelyStudent ? 'Student' : 'Instructor'} login successful, setting user data:`, userData);
+          
           // Store user data in AsyncStorage
           const storageItems = isLikelyStudent
             ? [
                 ['studentId', userData.idNumber],
                 ['studentName', userData.fullName],
-                ['userType', 'student']
+                ['userType', 'student'],
+                ['idNumber', userData.idNumber]
               ]
             : [
                 ['instructorId', userData.idNumber],
                 ['instructorName', userData.fullName],
-                ['userType', 'instructor']
+                ['userType', 'instructor'],
+                ['idNumber', userData.idNumber]
               ];
           
           await AsyncStorage.multiSet(storageItems);
           
           // Update auth context
           login(isLikelyStudent ? 'student' : 'instructor', userData);
+          console.log('Auth context updated with user data');
           
           const userType = isLikelyStudent ? 'Student' : 'Instructor';
           showAlert('Success', `${userType} login successful!`, 'success');
           
           setTimeout(() => {
             const targetScreen = isLikelyStudent ? 'StudentDashboard' : 'InstructorDashboard';
+            console.log(`Navigating to ${targetScreen} with user data:`, userData);
             navigation.replace(targetScreen, { [isLikelyStudent ? 'studentData' : 'instructorData']: userData });
           }, 1500);
           return;
@@ -174,7 +182,8 @@ const Login = () => {
               : [
                   ['instructorId', userData.idNumber],
                   ['instructorName', userData.fullName],
-                  ['userType', 'instructor']
+                  ['userType', 'instructor'],
+                  ['idNumber', userData.idNumber]
                 ];
             
             await AsyncStorage.multiSet(storageItems);

@@ -72,7 +72,7 @@ export const generateAttendanceReport = async (courseId, courseCode, courseName)
 
         // Student Attendance Section
         csvContent.push(['STUDENT ATTENDANCE']);
-        csvContent.push(['Student ID', 'Student Name', 'Date', 'Present', 'Absent', 'Late']);
+        csvContent.push(['Student ID', 'Student Name', 'Date', 'Present', 'Absent']);
 
         // Add student attendance records
         const students = attendanceData.studentStats || [];
@@ -85,8 +85,7 @@ export const generateAttendanceReport = async (courseId, courseCode, courseName)
                     student.studentName || '',
                     formatDate(session.date),
                     session.present ? '1' : '0',
-                    session.absent ? '1' : '0',
-                    session.late ? '1' : '0'
+                    session.absent ? '1' : '0'
                 ]);
             });
         });

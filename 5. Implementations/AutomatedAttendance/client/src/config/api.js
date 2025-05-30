@@ -8,7 +8,7 @@ import { Platform } from 'react-native';
 export const API_URL = Platform.select({
   android: 'http://192.168.254.147:5001',    // <- Updated port to 5001
   ios: 'http://192.168.254.254:5001',        // <- Updated port to 5001
-  default: 'http://localhost:5001'           // <- Updated port to 5001
+  default: 'http://localhost:5001'           // <- For web browser
 });
 
 export const endpoints = {

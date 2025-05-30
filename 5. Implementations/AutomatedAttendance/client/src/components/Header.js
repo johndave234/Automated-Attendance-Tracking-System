@@ -11,16 +11,29 @@ const Header = ({
   title = 'Welcome, Admin',
   subtitle = 'Manage accounts',
   onLogout,
+  showBackButton = false,
+  onBackPress,
+  showLogout = false,
 }) => {
   return (
     <View style={styles.header}>
-      <View style={styles.headerContent}>
-        <Text style={styles.welcomeText}>{title}</Text>
-        {subtitle && (
-          <Text style={styles.subtitleText}>{subtitle}</Text>
+      <View style={styles.leftContainer}>
+        {showBackButton && (
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={onBackPress}
+          >
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
         )}
+        <View style={styles.headerContent}>
+          <Text style={styles.welcomeText}>{title}</Text>
+          {subtitle && (
+            <Text style={styles.subtitleText}>{subtitle}</Text>
+          )}
+        </View>
       </View>
-      {onLogout && (
+      {(showLogout || onLogout) && (
         <TouchableOpacity 
           style={styles.logoutButton}
           onPress={onLogout}
@@ -50,6 +63,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
+  },
+  leftContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    marginRight: 10,
+    padding: 5,
   },
   headerContent: {
     flex: 1,

@@ -49,55 +49,41 @@ router.delete('/:id', adminAuth, async (req, res) => {
 router.post('/login', async (req, res) => {
     try {
         const { instructorId, password } = req.body;
-        console.log(`Login attempt for instructor ID: ${instructorId}`);
-        const startTime = Date.now();
 
-        // Find instructor by ID (with lean() for better performance)
-        const instructor = await Instructor.findOne({ idNumber: instructorId }).lean();
+        // Find instructor by ID
+        const instructor = await Instructor.findOne({ idNumber: instructorId });
         
         // If instructor doesn't exist
         if (!instructor) {
-            console.log(`Instructor ID not found: ${instructorId} (${Date.now() - startTime}ms)`);
             return res.status(401).json({ message: 'Invalid instructor ID or password' });
         }
 
-        // Check password using the Instructor model's comparePassword
-        // Retrieve a non-lean document for methods
-        const instructorWithMethods = await Instructor.findById(instructor._id);
-        const isMatch = await instructorWithMethods.comparePassword(password);
-        
+        // Check password using the comparePassword method
+        const isMatch = await instructor.comparePassword(password);
         if (!isMatch) {
-            console.log(`Invalid password for instructor: ${instructorId} (${Date.now() - startTime}ms)`);
             return res.status(401).json({ message: 'Invalid instructor ID or password' });
         }
 
-        // Create success response first
-        const responseData = {
+        // Create login log
+        await UserLog.create({
+            userId: instructor._id,
+            userType: 'Instructor',
+            fullName: instructor.fullName,
+            idNumber: instructor.idNumber,
+            action: 'login'
+        });
+
+        // Return instructor data (excluding password)
+        res.json({
             success: true,
             instructor: {
                 id: instructor._id,
                 idNumber: instructor.idNumber,
                 fullName: instructor.fullName
             }
-        };
+        });
 
-        // Create login log asynchronously (don't wait for it)
-        UserLog.create({
-            userId: instructor._id,
-            userType: 'Instructor',
-            fullName: instructor.fullName,
-            idNumber: instructor.idNumber,
-            action: 'login'
-        }).catch(err => console.error('Error creating login log:', err));
-
-        // Log performance
-        console.log(`Instructor login successful: ${instructorId} (${Date.now() - startTime}ms)`);
-        
-        // Return instructor data (excluding password)
-        res.json(responseData);
-
-    } catch (error) {
-        console.error('Instructor login error:', error);
+    } catch {
         res.status(500).json({ message: 'Server error' });
     }
 });

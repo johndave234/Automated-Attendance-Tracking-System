@@ -6,6 +6,7 @@ import Login from './client/src/screens/Login';
 import Dashboard from './client/src/screens/admin/Dashboard';
 import Signup from './client/src/screens/admin/Signup';
 import StudentDashboard from './client/src/screens/students/StudentDashboard';
+import StudentCourses from './client/src/screens/students/StudentCourses';
 import InstructorDashboard from './client/src/screens/instructor/InstructorDashboard';
 import EnrolledStudent from './client/src/screens/instructor/EnrolledStudent';
 import QRScanner from './client/src/screens/students/QRScanner';
@@ -28,6 +29,7 @@ export default function App() {
           <Stack.Screen name="Dashboard" component={Dashboard} />
           <Stack.Screen name="Signup" component={Signup} />
           <Stack.Screen name="StudentDashboard" component={StudentDashboard} />
+          <Stack.Screen name="StudentCourses" component={StudentCourses} />
           <Stack.Screen name="InstructorDashboard" component={InstructorDashboard} />
           <Stack.Screen name="EnrolledStudent" component={EnrolledStudent} />
           <Stack.Screen name="QRScanner" component={QRScanner} />

@@ -126,140 +126,148 @@ const Signup = ({ route }) => {
     return true;
   };
 
-  return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <SafeAreaView style={styles.container}>
-        <View style={styles.background} />
-        
-        {alert.visible && (
-          <CustomAlert
-            type={alert.type}
-            message={alert.message}
-            onClose={() => setAlert({ ...alert, visible: false })}
-          />
-        )}
-        
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.content}
+  // Create the main content
+  const renderContent = () => (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.background} />
+      
+      {alert.visible && (
+        <CustomAlert
+          type={alert.type}
+          message={alert.message}
+          onClose={() => setAlert({ ...alert, visible: false })}
+        />
+      )}
+      
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.content}
+      >
+        {/* Back Button */}
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
         >
-          {/* Back Button */}
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="arrow-back" size={28} color="#ffffff" />
-          </TouchableOpacity>
+          <Ionicons name="arrow-back" size={28} color="#ffffff" />
+        </TouchableOpacity>
 
-          {/* Header */}
-          <View style={styles.header}>
-            <Image
-              source={require('../../assets/images/logo.png')}
-              style={styles.logo}
-              resizeMode="contain"
+        {/* Header */}
+        <View style={styles.header}>
+          <Image
+            source={require('../../assets/images/logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <Text style={styles.title}>Create Account</Text>
+          <Text style={styles.subtitle}>Add a new user to the system</Text>
+        </View>
+
+        {/* Signup Form */}
+        <View style={styles.form}>
+          {/* Account Type Selection */}
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Account Type</Text>
+            <View style={styles.accountTypeContainer}>
+              <TouchableOpacity 
+                style={[
+                  styles.accountTypeButton,
+                  accountType === 'student' && styles.accountTypeButtonActive
+                ]}
+                onPress={() => setAccountType('student')}
+              >
+                <Text style={[
+                  styles.accountTypeText,
+                  accountType === 'student' && styles.accountTypeTextActive
+                ]}>Student</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[
+                  styles.accountTypeButton,
+                  accountType === 'instructor' && styles.accountTypeButtonActive
+                ]}
+                onPress={() => setAccountType('instructor')}
+              >
+                <Text style={[
+                  styles.accountTypeText,
+                  accountType === 'instructor' && styles.accountTypeTextActive
+                ]}>Instructor</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>ID Number</Text>
+            <TextInput
+              style={[styles.input, Platform.OS === 'web' && styles.webInput]}
+              placeholder={`Enter ${accountType}'s ID number`}
+              value={idNumber}
+              onChangeText={setIdNumber}
+              keyboardType="numeric"
+              autoCapitalize="none"
             />
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Add a new user to the system</Text>
+          </View>
+          
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Full Name</Text>
+            <TextInput
+              style={[styles.input, Platform.OS === 'web' && styles.webInput]}
+              placeholder={`Enter ${accountType}'s full name`}
+              value={fullName}
+              onChangeText={setFullName}
+              autoCapitalize="words"
+            />
           </View>
 
-          {/* Signup Form */}
-          <View style={styles.form}>
-            {/* Account Type Selection */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Account Type</Text>
-              <View style={styles.accountTypeContainer}>
-                <TouchableOpacity 
-                  style={[
-                    styles.accountTypeButton,
-                    accountType === 'student' && styles.accountTypeButtonActive
-                  ]}
-                  onPress={() => setAccountType('student')}
-                >
-                  <Text style={[
-                    styles.accountTypeText,
-                    accountType === 'student' && styles.accountTypeTextActive
-                  ]}>Student</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[
-                    styles.accountTypeButton,
-                    accountType === 'instructor' && styles.accountTypeButtonActive
-                  ]}
-                  onPress={() => setAccountType('instructor')}
-                >
-                  <Text style={[
-                    styles.accountTypeText,
-                    accountType === 'instructor' && styles.accountTypeTextActive
-                  ]}>Instructor</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>ID Number</Text>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Password</Text>
+            <View style={styles.passwordContainer}>
               <TextInput
-                style={styles.input}
-                placeholder={`Enter ${accountType}'s ID number`}
-                value={idNumber}
-                onChangeText={setIdNumber}
-                keyboardType="numeric"
-                autoCapitalize="none"
+                style={[styles.passwordInput, Platform.OS === 'web' && styles.webInput]}
+                placeholder="Create a password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
               />
-            </View>
-            
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Full Name</Text>
-              <TextInput
-                style={styles.input}
-                placeholder={`Enter ${accountType}'s full name`}
-                value={fullName}
-                onChangeText={setFullName}
-                autoCapitalize="words"
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Password</Text>
-              <View style={styles.passwordContainer}>
-                <TextInput
-                  style={styles.passwordInput}
-                  placeholder="Create a password"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off' : 'eye'}
+                  size={24}
+                  color="#999999"
                 />
-                <TouchableOpacity
-                  style={styles.eyeIcon}
-                  onPress={() => setShowPassword(!showPassword)}
-                >
-                  <Ionicons
-                    name={showPassword ? 'eye-off' : 'eye'}
-                    size={24}
-                    color="#999999"
-                  />
-                </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             </View>
-
-            <TouchableOpacity 
-              style={[
-                styles.signupButton,
-                isLoading && styles.signupButtonDisabled
-              ]}
-              onPress={handleSignup}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.signupButtonText}>Create Account</Text>
-              )}
-            </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </TouchableWithoutFeedback>
+
+          <TouchableOpacity 
+            style={[
+              styles.signupButton,
+              isLoading && styles.signupButtonDisabled
+            ]}
+            onPress={handleSignup}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.signupButtonText}>Create Account</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
+
+  // Only wrap with TouchableWithoutFeedback on mobile platforms
+  return Platform.OS === 'web' 
+    ? renderContent() 
+    : (
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        {renderContent()}
+      </TouchableWithoutFeedback>
+    );
 };
 
 const styles = StyleSheet.create({
@@ -338,6 +346,10 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     backgroundColor: '#f8f9fa',
+  },
+  webInput: {
+    outlineStyle: 'none', // Removes the default focus outline on web
+    cursor: 'text',
   },
   passwordContainer: {
     flexDirection: 'row',

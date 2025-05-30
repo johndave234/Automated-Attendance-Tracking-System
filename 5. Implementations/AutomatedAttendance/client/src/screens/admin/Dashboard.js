@@ -5,10 +5,10 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
-  Alert,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import TabBar from '../../components/TabBar';
 import Header from '../../components/Header';
 import StatisticsChart from '../../components/StatisticsChart';
@@ -16,16 +16,13 @@ import TrendChart from '../../components/TrendChart';
 import { useAuth } from '../../context/AuthContext';
 import { API_URL } from '../../config/api';
 import { ADMIN_CREDENTIALS } from '../../config/auth';
-import { colors, spacing, shadows } from '../../config/theme';
 import Courses from './Courses';
 import Users from './Users';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import CustomAlert from '../../components/CustomAlert';
 
 const Dashboard = () => {
   const navigation = useNavigation();
-  const route = useRoute();
   const { loginAdmin, logoutAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [statistics, setStatistics] = useState({
@@ -41,7 +38,12 @@ const Dashboard = () => {
       },
     ],
   });
-  const [isLoading, setIsLoading] = useState(false);
+  const [isFixingInstructors, setIsFixingInstructors] = useState(false);
+  const [alert, setAlert] = useState({
+    visible: false,
+    type: 'success',
+    message: ''
+  });
 
   useEffect(() => {
     loginAdmin();
@@ -121,12 +123,6 @@ const Dashboard = () => {
         }).length;
       });
 
-      // If all counts are 0, use mock data for better visualization in development
-      const allZeros = counts.every(count => count === 0);
-      const finalCounts = allZeros && process.env.NODE_ENV !== 'production' 
-        ? [1, 2, 0, 3, 1, 2, 4] // Mock data for development
-        : counts;
-
       // Format dates for labels
       const labels = last7Days.map(date => {
         const month = (date.getMonth() + 1).toString().padStart(2, '0');
@@ -138,7 +134,7 @@ const Dashboard = () => {
         labels,
         datasets: [
           {
-            data: finalCounts,
+            data: counts,
             color: (opacity = 1) => `rgba(76, 175, 80, ${opacity})`,
             strokeWidth: 2,
           },
@@ -148,53 +144,15 @@ const Dashboard = () => {
       console.error('Error fetching trend data:', error);
       // Set default data in case of error
       setTrendData({
-        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-        datasets: [{ 
-          data: [1, 2, 0, 3, 1, 2, 4],
-          color: (opacity = 1) => `rgba(76, 175, 80, ${opacity})`,
-          strokeWidth: 2,
-        }],
+        labels: [''],
+        datasets: [{ data: [0] }],
       });
     }
   };
 
-  const handleLogout = async () => {
-    // Show confirmation dialog
-    Alert.alert(
-      "Confirm Logout",
-      "Are you sure you want to log out?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel"
-        },
-        {
-          text: "Logout",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              setIsLoading(true);
-              
-              // Use the admin logout function from context
-              logoutAdmin();
-              
-              // Clear AsyncStorage
-              await AsyncStorage.multiRemove(['adminId', 'adminName', 'userType']);
-              
-              Alert.alert('Success', 'Logged out successfully');
-              setTimeout(() => {
-                navigation.replace('Login');
-              }, 1500);
-            } catch (error) {
-              Alert.alert('Error', 'Failed to logout');
-            } finally {
-              setIsLoading(false);
-            }
-          }
-        }
-      ],
-      { cancelable: true }
-    );
+  const handleLogout = () => {
+    logoutAdmin();
+    navigation.replace('RoleSelection');
   };
 
   const handleTabPress = (tabKey) => {
@@ -210,64 +168,97 @@ const Dashboard = () => {
     }
   };
 
+  const fixInstructorNames = async () => {
+    try {
+      setIsFixingInstructors(true);
+      
+      const response = await fetch(`${API_URL}/api/courses/fix-instructor-names`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'admin-id': ADMIN_CREDENTIALS.ADMIN_ID,
+          'admin-password': ADMIN_CREDENTIALS.ADMIN_PASSWORD
+        }
+      });
+      
+      const data = await response.json();
+      console.log('Fix instructor names response:', data);
+      
+      if (response.ok) {
+        setAlert({
+          visible: true,
+          type: 'success',
+          message: `${data.message} (${data.updatedCourses} of ${data.totalCourses} courses updated)`
+        });
+        
+        // Refresh statistics after fixing
+        fetchStatistics();
+      } else {
+        setAlert({
+          visible: true,
+          type: 'error',
+          message: data.message || 'Failed to fix instructor names'
+        });
+      }
+    } catch (error) {
+      console.error('Error fixing instructor names:', error);
+      setAlert({
+        visible: true,
+        type: 'error',
+        message: 'Error fixing instructor names: ' + error.message
+      });
+    } finally {
+      setIsFixingInstructors(false);
+    }
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
         return (
           <ScrollView style={styles.dashboardContent}>
-            <View style={styles.chartContainer}>
-              <Text style={styles.sectionTitle}>New Accounts Created (Last 7 Days)</Text>
-              <TrendChart data={trendData} height={220} />
-            </View>
-            
+            <TrendChart
+              data={trendData}
+              title="New Accounts Created (Last 7 Days)"
+            />
             <View style={styles.statsContainer}>
               <View style={styles.statsRow}>
-                <TouchableOpacity
-                  style={[styles.statCard, { backgroundColor: '#3f51b5' }]}
+                <TouchableOpacity 
+                  style={[styles.statCard, { backgroundColor: '#165973' }]}
                   onPress={() => handleStatPress('students')}
                 >
-                  <View style={styles.statIconContainer}>
-                    <Ionicons name="people" size={28} color="#ffffff" />
-                  </View>
+                  <Ionicons name="people-outline" size={28} color="#fff" />
                   <Text style={styles.statValue}>{statistics.students}</Text>
                   <Text style={styles.statLabel}>Students</Text>
                 </TouchableOpacity>
-                
                 <TouchableOpacity 
-                  style={[styles.statCard, { backgroundColor: '#2196f3' }]}
-                  onPress={() => handleStatPress('instructors')}
+                  style={[styles.statCard, { backgroundColor: '#7FB3D1' }]}
+                  onPress={() => handleStatPress('students')}
                 >
-                  <View style={styles.statIconContainer}>
-                    <Ionicons name="school" size={28} color="#ffffff" />
-                  </View>
+                  <Ionicons name="school-outline" size={28} color="#fff" />
                   <Text style={styles.statValue}>{statistics.instructors}</Text>
                   <Text style={styles.statLabel}>Instructors</Text>
                 </TouchableOpacity>
               </View>
-              
               <View style={styles.statsRow}>
                 <TouchableOpacity 
-                  style={[styles.statCard, { backgroundColor: '#4caf50' }]}
+                  style={[styles.statCard, { backgroundColor: '#165973' }]}
                   onPress={() => handleStatPress('courses')}
                 >
-                  <View style={styles.statIconContainer}>
-                    <Ionicons name="book" size={28} color="#ffffff" />
-                  </View>
+                  <Ionicons name="book-outline" size={28} color="#fff" />
                   <Text style={styles.statValue}>{statistics.courses}</Text>
                   <Text style={styles.statLabel}>Courses</Text>
                 </TouchableOpacity>
-                
                 <TouchableOpacity 
-                  style={[styles.statCard, { backgroundColor: '#ff9800' }]}
-                  onPress={() => {}}
+                  style={[styles.statCard, { backgroundColor: '#7FB3D1' }]}
+                  onPress={fixInstructorNames}
+                  disabled={isFixingInstructors}
                 >
-                  <View style={styles.statIconContainer}>
-                    <Ionicons name="today" size={28} color="#ffffff" />
-                  </View>
+                  <Ionicons name="build-outline" size={28} color="#fff" />
                   <Text style={styles.statValue}>
-                    {`${new Date().getMonth() + 1}/${new Date().getDate()}/${new Date().getFullYear()}`}
+                    {isFixingInstructors ? "..." : "Fix"}
                   </Text>
-                  <Text style={styles.statLabel}>Today</Text>
+                  <Text style={styles.statLabel}>Instructor Names</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -284,22 +275,26 @@ const Dashboard = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header 
-        title="Admin Dashboard" 
-        showLogout={true}
+      <Header
+        title="Admin Dashboard"
+        showLogout
         onLogout={handleLogout}
       />
+      
       <View style={styles.content}>
         {renderContent()}
       </View>
+
       <TabBar
-        tabs={[
-          { key: 'dashboard', label: 'Dashboard', icon: 'home-outline', activeIcon: 'home' },
-          { key: 'users', label: 'Users', icon: 'people-outline', activeIcon: 'people' },
-          { key: 'courses', label: 'Courses', icon: 'book-outline', activeIcon: 'book' }
-        ]}
         activeTab={activeTab}
         onTabPress={handleTabPress}
+      />
+      
+      <CustomAlert
+        visible={alert.visible}
+        type={alert.type}
+        message={alert.message}
+        onClose={() => setAlert(prev => ({ ...prev, visible: false }))}
       />
     </SafeAreaView>
   );
@@ -308,62 +303,49 @@ const Dashboard = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#f5f5f5',
   },
   content: {
     flex: 1,
-    padding: spacing.lg,
+    padding: 16,
     paddingBottom: 0,
   },
   dashboardContent: {
     flex: 1,
-    padding: 8,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-    marginLeft: 8,
-  },
-  chartContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 0,
-    marginBottom: 20,
-    ...shadows.medium,
-    alignItems: 'center',
-    overflow: 'hidden',
   },
   statsContainer: {
+    padding: 16,
     gap: 20,
-    marginBottom: 20,
-    padding: 8,
   },
   statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 16,
+    gap: 20,
   },
   statCard: {
     flex: 1,
+    padding: 15,
     borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
-    ...shadows.small,
-  },
-  statIconContainer: {
-    marginBottom: 12,
+    minHeight: 120,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   statValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#ffffff',
-    marginVertical: 6,
+    color: '#fff',
+    marginTop: 10,
+    marginBottom: 5,
   },
   statLabel: {
-    fontSize: 16,
-    color: '#ffffff',
+    fontSize: 14,
+    color: '#fff',
     opacity: 0.9,
   },
 });

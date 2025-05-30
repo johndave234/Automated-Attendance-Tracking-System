@@ -4,58 +4,177 @@ import {
   Text,
   StyleSheet,
   SafeAreaView,
-  TouchableOpacity,
   ActivityIndicator,
   Alert,
-  ScrollView,
-  Dimensions,
   FlatList,
+  TouchableOpacity,
+  RefreshControl,
+  Modal,
+  TextInput,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import CustomAlert from '../../components/CustomAlert';
-import { useAuth } from '../../context/AuthContext';
-import { colors, spacing, typography, shadows, borderRadius } from '../../config/theme';
-
-const { width } = Dimensions.get('window');
-
-// Project colors
-const projectColors = {
-  navy: '#1a237e',     // Dark navy blue for primary background
-  orange: '#ff5722',   // Orange accent color for buttons and highlights
-  white: '#FFFFFF',    // White for text on dark backgrounds
-  lightGray: '#f5f6fa', // Light gray for backgrounds
-  darkGray: '#333333', // Dark gray for text
-  mediumGray: '#666666', // Medium gray for secondary text
-};
+import TabBar from '../../components/TabBar';
+import Header from '../../components/Header';
+import { Ionicons } from '@expo/vector-icons';
 
 const StudentDashboard = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const studentData = route.params?.studentData || {};
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [courses, setCourses] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [recentCourses, setRecentCourses] = useState([]);
   const [attendanceStats, setAttendanceStats] = useState({
-    present: 0,
-    absent: 0,
-    total: 0,
-    rate: 0
+    rate: '0%',
+    classesToday: 0
   });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [alertConfig, setAlertConfig] = useState({
     visible: false,
     title: '',
     message: '',
     type: 'error'
   });
+  
+  // Manual code attendance state
+  const [isManualCodeModalVisible, setIsManualCodeModalVisible] = useState(false);
+  const [manualCode, setManualCode] = useState('');
+  const [manualCodeError, setManualCodeError] = useState('');
+  const [isSubmittingCode, setIsSubmittingCode] = useState(false);
+  const [selectedCourseForCode, setSelectedCourseForCode] = useState(null);
+
+  const studentTabs = [
+    {
+      key: 'dashboard',
+      label: 'Dashboard',
+      icon: 'home-outline',
+      activeIcon: 'home',
+    },
+    {
+      key: 'courses',
+      label: 'Courses',
+      icon: 'book-outline',
+      activeIcon: 'book',
+    }
+  ];
+
+  // Fetch enrolled courses and attendance data
+  const fetchDashboardData = async () => {
+    if (!studentData.idNumber) return;
+    
+    try {
+      setIsLoading(true);
+      
+      // Fetch enrolled courses
+      const coursesResponse = await axios.get(`${API_URL}/api/students/enrolled-courses/${studentData.idNumber}`);
+      
+      if (coursesResponse.data.success) {
+        // Get the courses data
+        const coursesData = coursesResponse.data.courses || [];
+        
+        // Sort by most recent or alphabetically if needed
+        const sortedCourses = [...coursesData].sort((a, b) => a.courseCode.localeCompare(b.courseCode));
+        
+        // Take only the first 3 courses for the dashboard
+        setRecentCourses(sortedCourses.slice(0, 3));
+        
+        // Update attendance stats based on course count
+        setAttendanceStats({
+          rate: coursesData.length > 0 ? '85%' : '0%', // This should be calculated from real data
+          classesToday: coursesData.length
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      showAlert('Error', 'Failed to load dashboard data');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    fetchCourses();
-    fetchAttendanceStats();
-  }, []);
+    fetchDashboardData();
+  }, [studentData.idNumber]);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    fetchDashboardData();
+  };
+
+  const handleTabPress = (tabKey) => {
+    if (tabKey === 'courses') {
+      navigation.navigate('StudentCourses', { studentData });
+    } else {
+      setActiveTab(tabKey);
+    }
+  };
+
+  const handleQRScan = (course) => {
+    // Navigate to QR Scanner screen with course info
+    navigation.navigate('QRScanner', { 
+      courseId: course.id,
+      courseCode: course.courseCode,
+      studentId: studentData.idNumber
+    });
+  };
+
+  // Function for manual code attendance
+  const handleManualCode = (course) => {
+    // Clear previous data and set the selected course
+    setManualCode('');
+    setManualCodeError('');
+    setIsSubmittingCode(false);
+    setSelectedCourseForCode(course);
+    setIsManualCodeModalVisible(true);
+  };
+  
+  // Function to submit the manual attendance code
+  const submitManualCode = async () => {
+    if (!manualCode.trim()) {
+      setManualCodeError('Please enter the attendance code');
+      return;
+    }
+    
+    setIsSubmittingCode(true);
+    
+    try {
+      console.log('Submitting manual code:', {
+        courseId: selectedCourseForCode.id,
+        courseCode: selectedCourseForCode.courseCode,
+        studentId: studentData.idNumber,
+        manualCode: manualCode.trim()
+      });
+      
+      const response = await axios.post(`${API_URL}/api/attendance/manual`, {
+        courseId: selectedCourseForCode.id,
+        courseCode: selectedCourseForCode.courseCode,
+        studentId: studentData.idNumber,
+        manualCode: manualCode.trim(),
+        studentName: studentData.fullName
+      });
+      
+      console.log('Manual attendance response:', response.data);
+      
+      if (response.data.success) {
+        // Close modal and show success message
+        setIsManualCodeModalVisible(false);
+        showAlert('Success', response.data.message || 'Attendance recorded successfully', 'success');
+      } else {
+        // Show error in modal
+        setManualCodeError(response.data.message || 'Invalid attendance code');
+      }
+    } catch (error) {
+      console.error('Error submitting manual code:', error.response?.data || error.message);
+      setManualCodeError(error.response?.data?.message || 'Failed to submit attendance code');
+    } finally {
+      setIsSubmittingCode(false);
+    }
+  };
 
   const showAlert = (title, message, type = 'error') => {
     setAlertConfig({
@@ -70,239 +189,242 @@ const StudentDashboard = () => {
     setAlertConfig(prev => ({ ...prev, visible: false }));
   };
 
-  const fetchCourses = async () => {
+  const handleLogout = async () => {
     try {
       setIsLoading(true);
-      // For demo purposes, we'll use mock data
-      // In a real app, you would fetch this from your API
-      setTimeout(() => {
-        setCourses([
-          { id: '1', code: 'CS101', name: 'Introduction to Computer Science', instructor: 'Dr. Smith' },
-          { id: '2', code: 'MATH201', name: 'Calculus II', instructor: 'Prof. Johnson' },
-          { id: '3', code: 'ENG102', name: 'Academic Writing', instructor: 'Dr. Williams' },
-          { id: '4', code: 'PHYS101', name: 'Physics I', instructor: 'Prof. Brown' },
-          { id: '5', code: 'CHEM101', name: 'General Chemistry', instructor: 'Dr. Davis' },
-        ]);
-        setIsLoading(false);
-      }, 1000);
+      
+      const response = await axios.post(`${API_URL}/api/students/logout`, {
+        studentId: studentData.idNumber
+      });
+
+      if (response.data.success) {
+        // Clear AsyncStorage
+        await AsyncStorage.multiRemove(['studentId', 'studentName', 'userType']);
+        
+        showAlert('Success', 'Logged out successfully', 'success');
+        setTimeout(() => {
+          navigation.replace('Login');
+        }, 1500);
+      } else {
+        throw new Error(response.data.message || 'Logout failed');
+      }
     } catch (error) {
-      console.error('Error fetching courses:', error);
+      Alert.alert('Error', error.response?.data?.message || 'Failed to logout');
+    } finally {
       setIsLoading(false);
     }
   };
 
-  const fetchAttendanceStats = async () => {
-    try {
-      // For demo purposes, we'll use mock data
-      // In a real app, you would fetch this from your API
-      setTimeout(() => {
-        setAttendanceStats({
-          present: 42,
-          absent: 8,
-          total: 50,
-          rate: 84
-        });
-      }, 1000);
-    } catch (error) {
-      console.error('Error fetching attendance stats:', error);
-    }
-  };
-
-  const handleLogout = async () => {
-    // Show confirmation dialog
-    Alert.alert(
-      "Confirm Logout",
-      "Are you sure you want to log out?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel"
-        },
-        {
-          text: "Logout",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              setIsLoading(true);
-              
-              const response = await axios.post(`${API_URL}/api/students/logout`, {
-                studentId: studentData.idNumber
-              });
-
-              if (response.data.success) {
-                // Clear AsyncStorage
-                await AsyncStorage.multiRemove(['studentId', 'studentName', 'userType']);
-                
-                showAlert('Success', 'Logged out successfully', 'success');
-                setTimeout(() => {
-                  navigation.replace('Login');
-                }, 1500);
-              } else {
-                throw new Error(response.data.message || 'Logout failed');
-              }
-            } catch (error) {
-              Alert.alert('Error', error.response?.data?.message || 'Failed to logout');
-            } finally {
-              setIsLoading(false);
-            }
-          }
-        }
-      ],
-      { cancelable: true }
-    );
-  };
-
   const renderCourseItem = ({ item }) => (
-    <View style={styles.courseItem}>
+    <View style={styles.courseCard}>
       <View style={styles.courseHeader}>
-        <Text style={styles.courseCode}>{item.code}</Text>
-        <TouchableOpacity style={styles.viewButton}>
-          <Text style={styles.viewButtonText}>View Details</Text>
+        <Text style={styles.courseCode}>{item.courseCode}</Text>
+        <Text style={styles.courseName}>{item.courseName}</Text>
+      </View>
+      
+      <View style={styles.courseDetailsWrapper}>
+        <View style={styles.detailRow}>
+          <Ionicons name="person-outline" size={16} color="#666" style={styles.detailIcon} />
+          <Text style={styles.instructorName}>Instructor: {item.instructor || 'Not assigned'}</Text>
+        </View>
+        
+        <View style={styles.detailRow}>
+          <Ionicons name="calendar-outline" size={16} color="#666" style={styles.detailIcon} />
+          <Text style={styles.courseSchedule}>{item.schedule}</Text>
+        </View>
+        
+        <View style={styles.detailRow}>
+          <Ionicons name="location-outline" size={16} color="#666" style={styles.detailIcon} />
+          <Text style={styles.courseRoom}>Room: {item.room || 'Not assigned'}</Text>
+        </View>
+      </View>
+      
+      <View style={styles.courseActions}>
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => navigation.navigate('StudentCourses', { studentData })}
+        >
+          <Ionicons name="list-outline" size={20} color="#165973" />
+          <Text style={styles.actionButtonText}>Details</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => handleQRScan(item)}
+        >
+          <Ionicons name="qr-code-outline" size={20} color="#165973" />
+          <Text style={styles.actionButtonText}>Scan QR</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => handleManualCode(item)}
+        >
+          <Ionicons name="keypad-outline" size={20} color="#165973" />
+          <Text style={styles.actionButtonText}>Enter Code</Text>
         </TouchableOpacity>
       </View>
-      <Text style={styles.courseName}>{item.name}</Text>
-      <Text style={styles.instructorName}>Instructor: {item.instructor}</Text>
     </View>
   );
 
-  const renderDashboardTab = () => (
-    <ScrollView style={styles.tabContent}>
-      <View style={styles.statsContainer}>
-        <View style={styles.statsCard}>
-          <Text style={styles.statsTitle}>Attendance Rate</Text>
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{attendanceStats.present}</Text>
-              <Text style={styles.statLabel}>Present</Text>
+  const renderAttendanceStats = () => (
+    <View style={styles.statsContainer}>
+      <View style={styles.statCard}>
+        <Ionicons name="calendar-outline" size={24} color="#165973" />
+        <Text style={styles.statValue}>{attendanceStats.rate}</Text>
+        <Text style={styles.statLabel}>Attendance Rate</Text>
+      </View>
+      
+      <View style={styles.statCard}>
+        <Ionicons name="time-outline" size={24} color="#1E88E5" />
+        <Text style={styles.statValue}>{attendanceStats.classesToday}</Text>
+        <Text style={styles.statLabel}>Enrolled Courses</Text>
+      </View>
+    </View>
+  );
+
+  // Render manual code modal
+  const renderManualCodeModal = () => {
+    return (
+      <Modal
+        visible={isManualCodeModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsManualCodeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Enter Attendance Code</Text>
+              <TouchableOpacity onPress={() => setIsManualCodeModalVisible(false)} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
             </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{attendanceStats.absent}</Text>
-              <Text style={styles.statLabel}>Absent</Text>
+            
+            <View style={styles.manualCodeContainer}>
+              {selectedCourseForCode && (
+                <View style={styles.selectedCourseInfo}>
+                  <Text style={styles.selectedCourseCode}>{selectedCourseForCode.courseCode}</Text>
+                  <Text style={styles.selectedCourseName}>{selectedCourseForCode.courseName}</Text>
+                </View>
+              )}
+              
+              <Text style={styles.codeInstructions}>
+                Please enter the attendance code provided by your instructor to record your attendance.
+              </Text>
+              
+              <TextInput
+                style={[styles.codeInput, manualCodeError ? styles.codeInputError : null]}
+                value={manualCode}
+                onChangeText={(text) => {
+                  setManualCode(text);
+                  if (text.trim()) setManualCodeError('');
+                }}
+                placeholder="Enter attendance code"
+                placeholderTextColor="#999"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              
+              {manualCodeError ? (
+                <Text style={styles.codeErrorText}>{manualCodeError}</Text>
+              ) : null}
             </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statValue}>{attendanceStats.rate}%</Text>
-              <Text style={styles.statLabel}>Rate</Text>
+            
+            <View style={styles.modalFooter}>
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={() => setIsManualCodeModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[
+                  styles.submitButton,
+                  (!manualCode.trim() || isSubmittingCode) ? styles.disabledButton : null
+                ]}
+                onPress={submitManualCode}
+                disabled={!manualCode.trim() || isSubmittingCode}
+              >
+                {isSubmittingCode ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.submitButtonText}>Submit</Text>
+                )}
+              </TouchableOpacity>
             </View>
           </View>
         </View>
-      </View>
-      
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Recent Courses</Text>
-      </View>
-      
-      {isLoading ? (
-        <ActivityIndicator size="large" color={projectColors.orange} style={styles.loader} />
-      ) : courses.length > 0 ? (
-        courses.slice(0, 3).map((item) => renderCourseItem({ item }))
-      ) : (
-        <Text style={styles.noCourses}>No courses enrolled yet</Text>
-      )}
-    </ScrollView>
-  );
-
-  const renderCoursesTab = () => (
-    <View style={styles.tabContent}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>My Courses</Text>
-      </View>
-      
-      {isLoading ? (
-        <ActivityIndicator size="large" color={projectColors.orange} style={styles.loader} />
-      ) : courses.length > 0 ? (
-        <FlatList
-          data={courses}
-          renderItem={renderCourseItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.coursesList}
-        />
-      ) : (
-        <Text style={styles.noCourses}>No courses enrolled yet</Text>
-      )}
-    </View>
-  );
-  
-  const renderQRScannerTab = () => (
-    <View style={styles.tabContent}>
-      <View style={styles.qrContainer}>
-        <Ionicons name="qr-code-outline" size={100} color={projectColors.orange} />
-        <Text style={styles.qrText}>Tap to scan attendance QR code</Text>
-        <TouchableOpacity 
-          style={styles.scanButton}
-          onPress={() => navigation.navigate('QRScanner', { studentData })}
-        >
-          <Text style={styles.scanButtonText}>Scan QR Code</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+      </Modal>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <Text style={styles.welcomeText}>Hi,</Text>
-          <Text style={styles.studentName}>{studentData.fullName || 'Student'}</Text>
-        </View>
-        <TouchableOpacity 
-          onPress={handleLogout} 
-          style={styles.logoutButton}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color={projectColors.white} size="small" />
-          ) : (
-            <Ionicons name="log-out-outline" size={24} color={projectColors.white} />
-          )}
-        </TouchableOpacity>
-      </View>
+      <Header
+        title={`Hi, ${studentData.fullName || 'Student'}`}
+        subtitle="Welcome to your dashboard"
+        onLogout={isLoading ? null : handleLogout}
+        showLogout={true}
+      />
 
       {/* Main Content */}
-      <View style={styles.mainContent}>
-        {activeTab === 'dashboard' && renderDashboardTab()}
-        {activeTab === 'courses' && renderCoursesTab()}
-        {activeTab === 'scanner' && renderQRScannerTab()}
+      <View style={styles.content}>
+        {isLoading && !isRefreshing ? (
+          <ActivityIndicator size="large" color="#165973" style={styles.loader} />
+        ) : (
+          <FlatList
+            data={recentCourses}
+            renderItem={renderCourseItem}
+            keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
+            ListHeaderComponent={
+              <>
+                {renderAttendanceStats()}
+                
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Recent Courses</Text>
+                  <TouchableOpacity 
+                    style={styles.viewAllButton}
+                    onPress={() => navigation.navigate('StudentCourses', { studentData })}
+                  >
+                    <Text style={styles.viewAllText}>View All</Text>
+                  </TouchableOpacity>
+                </View>
+                
+                {recentCourses.length === 0 && (
+                  <View style={styles.emptyState}>
+                    <Text style={styles.emptyStateText}>You are not enrolled in any courses</Text>
+                    <TouchableOpacity
+                      style={styles.enrollButton}
+                      onPress={() => navigation.navigate('StudentCourses', { studentData })}
+                    >
+                      <Text style={styles.enrollButtonText}>Enroll in Courses</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
+            }
+            contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                colors={['#165973']}
+              />
+            }
+          />
+        )}
       </View>
 
-      {/* Tab Bar */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'dashboard' && styles.activeTab]} 
-          onPress={() => setActiveTab('dashboard')}
-        >
-          <Ionicons 
-            name={activeTab === 'dashboard' ? 'home' : 'home-outline'} 
-            size={24} 
-            color={activeTab === 'dashboard' ? projectColors.orange : projectColors.white} 
-          />
-          <Text style={[styles.tabLabel, activeTab === 'dashboard' && styles.activeTabLabel]}>Dashboard</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'courses' && styles.activeTab]} 
-          onPress={() => setActiveTab('courses')}
-        >
-          <Ionicons 
-            name={activeTab === 'courses' ? 'book' : 'book-outline'} 
-            size={24} 
-            color={activeTab === 'courses' ? projectColors.orange : projectColors.white} 
-          />
-          <Text style={[styles.tabLabel, activeTab === 'courses' && styles.activeTabLabel]}>Courses</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'scanner' && styles.activeTab]} 
-          onPress={() => setActiveTab('scanner')}
-        >
-          <Ionicons 
-            name={activeTab === 'scanner' ? 'qr-code' : 'qr-code-outline'} 
-            size={24} 
-            color={activeTab === 'scanner' ? projectColors.orange : projectColors.white} 
-          />
-          <Text style={[styles.tabLabel, activeTab === 'scanner' && styles.activeTabLabel]}>Scan QR</Text>
-        </TouchableOpacity>
-      </View>
+      {/* TabBar */}
+      <TabBar
+        tabs={studentTabs}
+        activeTab={activeTab}
+        onTabPress={handleTabPress}
+      />
+
+      {/* Manual Code Modal */}
+      {renderManualCodeModal()}
 
       <CustomAlert
         visible={alertConfig.visible}
@@ -318,184 +440,277 @@ const StudentDashboard = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: projectColors.lightGray,
+    backgroundColor: '#f5f5f5',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  content: {
+    flex: 1,
+  },
+  loader: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.lg,
-    backgroundColor: projectColors.navy,
-    borderBottomWidth: 0,
-    ...shadows.medium,
   },
-  headerContent: {
-    flex: 1,
-  },
-  welcomeText: {
-    ...typography.body1,
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginBottom: spacing.xs,
-  },
-  studentName: {
-    ...typography.h2,
-    color: projectColors.white,
-  },
-  logoutButton: {
-    padding: spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 8,
-  },
-  mainContent: {
-    flex: 1,
-    backgroundColor: projectColors.lightGray,
-  },
-  tabContent: {
-    flex: 1,
-    padding: spacing.md,
+  listContent: {
+    padding: 20,
   },
   statsContainer: {
-    marginBottom: spacing.lg,
-  },
-  statsCard: {
-    backgroundColor: projectColors.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    ...shadows.medium,
-  },
-  statsTitle: {
-    ...typography.h3,
-    color: projectColors.navy,
-    marginBottom: spacing.md,
-  },
-  statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    marginBottom: 20,
   },
-  statItem: {
+  statCard: {
+    width: '48%',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 15,
     alignItems: 'center',
-    flex: 1,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
   },
   statValue: {
-    ...typography.h2,
-    color: projectColors.orange,
-    marginBottom: spacing.xs,
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginVertical: 5,
   },
   statLabel: {
-    ...typography.body2,
-    color: projectColors.mediumGray,
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
-    marginTop: spacing.lg,
+    marginBottom: 15,
   },
   sectionTitle: {
-    ...typography.h3,
-    color: projectColors.navy,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
   },
-  courseItem: {
-    backgroundColor: projectColors.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    ...shadows.small,
+  viewAllButton: {
+    padding: 5,
+  },
+  viewAllText: {
+    color: '#165973',
+    fontWeight: '500',
+  },
+  courseCard: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
   },
   courseHeader: {
+    marginBottom: 10,
+  },
+  courseCode: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#165973',
+  },
+  courseName: {
+    fontSize: 14,
+    color: '#333',
+    marginTop: 4,
+  },
+  courseDetailsWrapper: {
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingTop: 10,
+    marginBottom: 10,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  detailIcon: {
+    marginRight: 8,
+  },
+  instructorName: {
+    fontSize: 13,
+    color: '#666',
+    flex: 1,
+  },
+  courseSchedule: {
+    fontSize: 13,
+    color: '#666',
+    flex: 1,
+  },
+  courseRoom: {
+    fontSize: 13,
+    color: '#666',
+    flex: 1,
+  },
+  courseActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingTop: 10,
+  },
+  actionButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 5,
+    flex: 1,
+  },
+  actionButtonText: {
+    fontSize: 12,
+    color: '#165973',
+    marginTop: 4,
+  },
+  emptyState: {
+    padding: 30,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    marginTop: 10,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  enrollButton: {
+    backgroundColor: '#165973',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 5,
+  },
+  enrollButtonText: {
+    color: '#fff',
+    fontWeight: '500',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    width: '100%',
+    maxHeight: '60%',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
-  courseCode: {
-    ...typography.body2,
+  modalTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
-    color: projectColors.orange,
+    color: '#165973',
   },
-  courseName: {
-    ...typography.h3,
-    color: projectColors.darkGray,
-    marginBottom: spacing.xs,
+  closeButton: {
+    padding: 5,
   },
-  instructorName: {
-    ...typography.body2,
-    color: projectColors.mediumGray,
+  manualCodeContainer: {
+    padding: 15,
   },
-  viewButton: {
-    backgroundColor: `${projectColors.orange}15`,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.sm,
+  selectedCourseInfo: {
+    marginBottom: 20,
+    padding: 15,
+    backgroundColor: '#f7f9fa',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#165973',
   },
-  viewButtonText: {
-    ...typography.caption,
-    color: projectColors.orange,
-    fontWeight: '500',
+  selectedCourseCode: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#165973',
+    marginBottom: 4,
   },
-  noCourses: {
-    ...typography.body1,
-    color: projectColors.mediumGray,
-    textAlign: 'center',
-    marginTop: spacing.xl,
+  selectedCourseName: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 4,
   },
-  loader: {
-    marginTop: spacing.xl,
+  codeInstructions: {
+    fontSize: 14,
+    color: '#555',
+    marginBottom: 15,
+    lineHeight: 20,
   },
-  tabBar: {
+  codeInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: '#fff',
+    marginBottom: 10,
+  },
+  codeInputError: {
+    borderColor: '#dc3545',
+  },
+  codeErrorText: {
+    color: '#dc3545',
+    fontSize: 14,
+    marginBottom: 10,
+  },
+  modalFooter: {
     flexDirection: 'row',
-    backgroundColor: projectColors.navy,
-    borderTopWidth: 0,
-    height: 60,
-    ...shadows.medium,
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    padding: 15,
   },
-  tab: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
+  cancelButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 5,
+    backgroundColor: '#f2f2f2',
   },
-  activeTab: {
-    borderTopWidth: 2,
-    borderTopColor: projectColors.orange,
-  },
-  tabLabel: {
-    ...typography.caption,
-    marginTop: spacing.xs,
-    color: projectColors.white,
-  },
-  activeTabLabel: {
-    color: projectColors.orange,
+  cancelButtonText: {
+    color: '#666',
     fontWeight: '500',
   },
-  qrContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
+  submitButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    backgroundColor: '#165973',
   },
-  qrText: {
-    ...typography.body1,
-    textAlign: 'center',
-    marginTop: spacing.lg,
-    marginBottom: spacing.xl,
-    color: projectColors.mediumGray,
+  submitButtonText: {
+    color: '#fff',
+    fontWeight: '500',
   },
-  scanButton: {
-    backgroundColor: projectColors.orange,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-    ...shadows.small,
-  },
-  scanButtonText: {
-    color: projectColors.white,
-    ...typography.body1,
-    fontWeight: '600',
-  },
-  coursesList: {
-    paddingBottom: spacing.xl,
+  disabledButton: {
+    backgroundColor: '#cccccc',
   },
 });
 

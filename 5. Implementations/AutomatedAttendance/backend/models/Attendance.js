@@ -1,42 +1,35 @@
 const mongoose = require('mongoose');
 
 const attendanceSchema = new mongoose.Schema({
-  studentId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Student',
-    required: true
-  },
-  courseId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Course',
-    required: true
-  },
-  instructorId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Instructor',
-    required: true
-  },
-  timestamp: {
-    type: Date,
-    required: true
-  },
-  qrCodeData: {
-    type: String,
-    required: true
-  },
-  status: {
-    type: String,
-    enum: ['present', 'late', 'absent'],
-    default: 'present'
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-});
+    courseCode: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    studentId: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    status: {
+        type: String,
+        required: true,
+        enum: ['Absent', 'Present', 'Late', 'Excused'],
+        default: 'Absent'
+    },
+    yearSection: {
+        type: String,
+        required: false,
+        trim: true
+    },
+    date: {
+        type: Date,
+        default: Date.now
+    }
+}, { timestamps: true });
 
-// Create a compound index to prevent duplicate attendance records
-attendanceSchema.index({ studentId: 1, courseId: 1, timestamp: 1 }, { unique: true });
+// Create indexes for faster queries
+attendanceSchema.index({ courseCode: 1, studentId: 1, date: 1 });
 
 const Attendance = mongoose.model('Attendance', attendanceSchema);
 

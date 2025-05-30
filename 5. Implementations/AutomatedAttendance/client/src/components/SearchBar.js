@@ -16,6 +16,7 @@ const SearchBar = ({
   createButtonText = 'Create',
   onCreatePress,
   createButtonIcon = 'add',
+  onRefresh,
 }) => {
   return (
     <View style={styles.searchContainer}>
@@ -28,6 +29,11 @@ const SearchBar = ({
           onChangeText={onSearchChange}
           placeholderTextColor="#666"
         />
+        {onRefresh && (
+          <TouchableOpacity onPress={onRefresh} style={styles.refreshButton}>
+            <Ionicons name="refresh-outline" size={20} color="#666" />
+          </TouchableOpacity>
+        )}
       </View>
       {showCreateButton && (
         <TouchableOpacity
@@ -73,6 +79,9 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: '#333',
+  },
+  refreshButton: {
+    padding: 5,
   },
   createButton: {
     flexDirection: 'row',

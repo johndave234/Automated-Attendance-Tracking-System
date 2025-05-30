@@ -18,8 +18,10 @@ import SearchBar from '../../components/SearchBar';
 import QRCode from 'react-native-qrcode-svg';
 import axios from 'axios';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useAuth } from '../../context/AuthContext';
 
 const InstructorCourses = () => {
+  const { user } = useAuth();
   const [courses, setCourses] = useState([]);
   const [filteredCourses, setFilteredCourses] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -103,32 +105,45 @@ const InstructorCourses = () => {
       setLoading(true);
       setError(null);
       
-      const instructorId = await AsyncStorage.getItem('idNumber');
+      // Use user from AuthContext instead of AsyncStorage
+      const instructorId = user?.idNumber;
+      
+      console.log('Fetching courses for instructor:', instructorId);
       
       if (!instructorId) {
+        console.error('Instructor ID not found in AuthContext');
         setError('Instructor ID not found. Please login again.');
-        navigation.replace('InstructorLogin');
+        navigation.replace('Login');
         return;
       }
 
       const response = await axios.get(`${API_URL}/api/courses/instructor/${instructorId}`);
+      console.log('Courses API response:', response.data);
 
       if (response.data) {
         setCourses(response.data);
+        if (response.data.length === 0) {
+          console.log('No courses found for instructor:', instructorId);
+        }
       } else {
         setError('No courses found');
       }
     } catch (err) {
+      console.error('Error fetching instructor courses:', err);
       console.error('Error details:', err.response?.data || err.message);
       if (err.response?.status === 401) {
         setError('Session expired. Please login again.');
-        navigation.replace('InstructorLogin');
+        navigation.replace('Login');
       } else {
         setError(`Failed to fetch courses: ${err.message}`);
       }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRefresh = () => {
+    fetchCourses();
   };
 
   const generateUniqueCode = () => {
@@ -281,7 +296,7 @@ const InstructorCourses = () => {
               ? 'No courses found matching your search'
               : 'No courses assigned yet'}
           </Text>
-          <TouchableOpacity onPress={fetchCourses}>
+          <TouchableOpacity onPress={handleRefresh}>
             <Text style={styles.refreshText}>Tap to refresh</Text>
           </TouchableOpacity>
         </View>
@@ -293,7 +308,7 @@ const InstructorCourses = () => {
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
           refreshing={loading}
-          onRefresh={fetchCourses}
+          onRefresh={handleRefresh}
         />
       )}
 
@@ -331,10 +346,6 @@ const InstructorCourses = () => {
                   backgroundColor="white"
                 />
               )}
-            </View>
-            <View style={styles.codeContainer}>
-              <Text style={styles.codeLabel}>Manual Code:</Text>
-              <Text style={styles.codeValue}>{qrModal.uniqueCode}</Text>
             </View>
             <TouchableOpacity 
               style={styles.closeButton}
@@ -481,28 +492,6 @@ const styles = StyleSheet.create({
     color: '#f44336',
     marginBottom: 16,
     fontWeight: '500',
-  },
-  codeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 20,
-    backgroundColor: '#f5f5f5',
-    padding: 12,
-    borderRadius: 8,
-    width: '100%',
-    justifyContent: 'center',
-  },
-  codeLabel: {
-    fontSize: 16,
-    color: '#666',
-    marginRight: 8,
-  },
-  codeValue: {
-    fontSize: 20,
-    color: '#165973',
-    fontWeight: 'bold',
-    letterSpacing: 2,
   },
   closeButton: {
     backgroundColor: '#165973',

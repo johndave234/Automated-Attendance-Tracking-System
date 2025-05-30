@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,10 @@ import {
   TextInput,
   ScrollView,
   Platform,
-  Modal
+  Modal,
+  ActivityIndicator
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Table from '../../components/Table';
 import SearchBar from '../../components/SearchBar';
@@ -17,6 +18,7 @@ import CustomAlert from '../../components/CustomAlert';
 import CustomModal from '../../components/Modal';
 import { API_URL, endpoints } from '../../config/api';
 import { ADMIN_CREDENTIALS } from '../../config/auth';
+import { colors } from '../../config/theme';
 
 // Days of the week for dropdown
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -114,19 +116,25 @@ const InstructorSearchField = ({ value, onChange, error }) => {
 
   return (
     <View style={styles.searchFieldContainer}>
-      <SearchBar
-        searchValue={typeof value === 'object' ? value.name : value}
-        onSearchChange={(text) => {
-          onChange(text);
-          handleSearch(text);
-        }}
-        searchPlaceholder="Search for an instructor..."
-        showCreateButton={false}
-      />
+      <View style={styles.instructorInputContainer}>
+        <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
+        <TextInput
+          style={styles.instructorInput}
+          value={typeof value === 'object' ? value.name : value}
+          onChangeText={(text) => {
+            onChange(text);
+            handleSearch(text);
+          }}
+          placeholder="Search for an instructor..."
+          placeholderTextColor="#666"
+        />
+      </View>
       
       {showDropdown && (
-        <View style={styles.dropdown}>
-          {renderDropdownContent()}
+        <View style={styles.instructorDropdown}>
+          <ScrollView style={styles.dropdownScrollView}>
+            {renderDropdownContent()}
+          </ScrollView>
         </View>
       )}
     </View>
@@ -284,7 +292,8 @@ const Courses = () => {
   const navigation = useNavigation();
   const [searchQuery, setSearchQuery] = useState('');
   const [courses, setCourses] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalFields, setModalFields] = useState([
@@ -354,6 +363,8 @@ const Courses = () => {
     visible: false,
     courseToDelete: null
   });
+  
+  const dataModified = useRef(false);
 
   const courseTableHeaders = [
     { key: 'courseCode', label: 'Course Code', width: 105 },
@@ -375,9 +386,15 @@ const Courses = () => {
     }
   ];
 
-  useEffect(() => {
-    fetchCourses();
-  }, []);
+  // Only fetch courses on initial load or when data is modified
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!initialLoadDone || dataModified.current) {
+        fetchCourses();
+        dataModified.current = false;
+      }
+    }, [initialLoadDone])
+  );
 
   const fetchCourses = async () => {
     try {
@@ -394,6 +411,7 @@ const Courses = () => {
       if (response.ok) {
         const coursesData = await response.json();
         setCourses(coursesData);
+        setInitialLoadDone(true);
       } else {
         setAlert({
           visible: true,
@@ -402,6 +420,7 @@ const Courses = () => {
         });
       }
     } catch (error) {
+      console.error('Error fetching courses:', error);
       setAlert({
         visible: true,
         type: 'error',
@@ -452,6 +471,7 @@ const Courses = () => {
         }
       }
 
+      dataModified.current = true;
       // Refresh the courses list
       await fetchCourses();
       
@@ -598,6 +618,7 @@ const Courses = () => {
           courseCode: courseData.courseCode,
           courseName: courseData.courseName,
           instructor: instructorId,
+          instructorName: instructorName,
           room: courseData.room,
           program: courseData.program,
           yearSection: courseData.yearSection,
@@ -616,6 +637,7 @@ const Courses = () => {
             : 'Course created successfully'
         });
         
+        dataModified.current = true;
         // Reset form and refresh courses
         handleModalClose();
         await fetchCourses();
@@ -653,6 +675,7 @@ const Courses = () => {
       });
 
       if (response.ok) {
+        dataModified.current = true;
         await fetchCourses();
         setAlert({
           visible: true,
@@ -678,6 +701,12 @@ const Courses = () => {
         courseToDelete: null
       });
     }
+  };
+
+  // Manual refresh function
+  const handleRefresh = () => {
+    dataModified.current = true;
+    fetchCourses();
   };
 
   const renderModalField = (field, value, onChange, error) => {
@@ -718,16 +747,28 @@ const Courses = () => {
         searchPlaceholder="Search courses..."
         onCreatePress={handleCreateCourse}
         createButtonText="Create Course"
+        onRefresh={handleRefresh}
       />
       <View style={styles.tableContainer}>
-        <Table
-          headers={courseTableHeaders}
-          data={courses}
-          actionButtons={actionButtons}
-          emptyMessage={loading ? "Loading courses..." : "No courses found"}
-          searchValue={searchQuery}
-          searchFields={['courseCode', 'instructor', 'room']}
-        />
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>Loading courses...</Text>
+          </View>
+        ) : (
+          <Table
+            headers={courseTableHeaders}
+            data={courses.map(course => ({
+              ...course,
+              instructor: course.instructorName || course.instructor || 'Not assigned'
+            }))}
+            actionButtons={actionButtons}
+            emptyMessage="No courses found"
+            searchValue={searchQuery}
+            searchFields={['courseCode', 'courseName', 'instructorName', 'room']}
+            onRowPress={(course) => handleEditCourse(course)}
+          />
+        )}
       </View>
 
       <CustomModal
@@ -776,10 +817,64 @@ const styles = StyleSheet.create({
     elevation: 5,
     marginBottom: 10,
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: colors.text.secondary,
+  },
   // InstructorSearchField styles
   searchFieldContainer: {
     position: 'relative',
     zIndex: 1,
+    marginBottom: 15,
+  },
+  instructorInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  instructorInput: {
+    flex: 1,
+    fontSize: 16,
+    padding: 12,
+    color: '#333',
+  },
+  instructorDropdown: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    maxHeight: 200,
+    marginTop: 5,
+    zIndex: 999,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  dropdownScrollView: {
+    maxHeight: 200,
   },
   dropdown: {
     position: 'absolute',
@@ -809,7 +904,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#eee',
   },
   dropdownText: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#333',
     padding: 12,
   },
