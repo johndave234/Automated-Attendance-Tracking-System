@@ -38,7 +38,7 @@ The Automated Attendance Tracking System is a comprehensive solution that simpli
 
    ```
    # Start backend server
-   npm run server
+   npm start
 
    # In a new terminal, start the client
    cd client
