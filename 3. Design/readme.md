@@ -75,8 +75,6 @@ Database: MySQL / MongoDB Atlas
 
 Authentication: Spring Security + MFA
 
-Cloud Deployment: AWS/Azure/GCP
-
 Data Flow
 Registration: Authorized users register students/instructors, and the system stores their data in the database.
 
