@@ -1,110 +1,81 @@
-Automated Attendance Tracking System
-Overview
-The Automated Attendance Tracking System is a web-based application designed to streamline attendance management for universities. It enables authorized users to register students and instructors, manage attendance via barcode scanning, and generate attendance reports. The system emphasizes role-based access control (RBAC), multi-factor authentication (MFA), and secure cloud deployment.
+# 🚀 Automated Attendance Tracking System
 
-Features
-User Management: Register and manage students, instructors, and administrators with role-based access control.
+## 🌟 Overview
+A web-based application designed to streamline attendance management for universities through barcode scanning and automated reporting. Features role-based access control (RBAC), multi-factor authentication (MFA), and secure cloud deployment.
 
-Attendance Tracking: Record attendance via barcode scanning using registered devices.
+## ✨ Key Features
+| Feature | Description |
+|---------|-------------|
+| 👥 **User Management** | Register/manage students, instructors, and admins with RBAC |
+| 📊 **Attendance Tracking** | Record attendance via barcode scanning on registered devices |
+| 📈 **Reporting** | Generate detailed attendance reports for courses/students |
+| 🔐 **Security** | MFA for instructors, data encryption, and secure APIs |
+| ☁️ **Cloud Deployment** | Auto-scaling cloud infrastructure |
 
-Reporting: Generate detailed attendance reports for courses and students.
+## 🏗️ System Architecture
+### 🖥️ Frontend
+![Frontend Architecture](media/image1.png)
+- **Technology**: Expo.js (SPA)
+- **Components**:
+  - � Instructor scanning interface
+  - 🎓 Student attendance portal
+  - 👔 Admin management dashboard
 
-Security: Implement MFA for instructor logins, RBAC, and encryption for sensitive data.
+### ⚙️ Backend
+![Backend Flow](media/image2.png)
+- **Technology**: Spring Boot REST API
+- **Functionality**:
+  - 🔑 RBAC and MFA implementation
+  - 📅 Attendance processing logic
+  - 📝 Report generation
 
-Cloud Deployment: Hosted on cloud infrastructure with auto-scaling capabilities.
+### 🗃️ Database
+![Database Schema](media/image3.png)
+- **Technology**: MySQL/MongoDB Atlas
+- **Tables**:
+  - `users` (credentials & roles)
+  - `students` (profiles & photos)
+  - `attendance_logs` (timestamps)
+  - `devices` (registered devices)
 
-System Architecture
-Frontend
-Technology: Expo.js (Single Page Application)
+## 🔗 API Endpoints
+| Endpoint | Method | Description | Auth |
+|----------|--------|-------------|------|
+| `/api/register/student` | POST | Register student | 🔑 Auth User |
+| `/api/attendance/scan` | POST | Submit barcode scan | 👨‍🏫 Instructor |
+| `/api/reports/attendance` | GET | Generate reports | 👔 Admin |
 
-Components:
+## 🔒 Security Features
+- 🛡️ **RBAC**: Admin/Instructor/Student roles
+- 🔐 **MFA**: Required for instructors
+- 🔏 **Encryption**: Sensitive data protection
+- 🔒 **TLS**: HTTPS with SSL
 
-Instructor interface for scanning barcodes.
+## 🛠️ Technology Stack
+| Layer | Technologies |
+|-------|-------------|
+| Frontend | Expo.js |
+| Backend | Spring Boot |
+| Database | MySQL/MongoDB Atlas |
+| Auth | Spring Security + MFA |
+| Cloud | AWS/Azure/GCP |
 
-Student portal to view attendance records.
+## 🔄 System Workflow
+1. **Registration** 👥 → DB 📀
+2. **Attendance** 📷 → ✅ → DB 📊
+3. **Viewing** 👀 → 📅
+4. **Reporting** 📈 → 📁
 
-Admin dashboard for managing users and generating reports.
+## ⚠️ Constraints
+- 📱 Requires camera-enabled devices
+- 🖥️ Manual web dashboard registration
+- 🚫 No university API integration (R05.03)
 
-Backend
-Technology: Spring Boot REST API
+## 📅 Timeline
+- 🧪 **System Check**: May 15, 2025
+- 🚀 **Full Deployment**: May 22, 2025
 
-Functionality:
-
-Handles RBAC, MFA, and CRUD operations.
-
-Processes attendance logic and generates reports.
-
-Database
-Technology: MySQL or MongoDB Atlas
-
-Tables/Collections:
-
-users: Stores user credentials and roles.
-
-students: Contains student profiles and photos.
-
-instructors: Manages instructor data and registered devices.
-
-attendance_logs: Records attendance timestamps and course details.
-
-devices: Tracks registered devices for attendance recording.
-
-API Endpoints
-Endpoint	Method	Description	Auth Role
-/api/register/student	POST	Register a student	Authorized User
-/api/register/instructor	POST	Register an instructor	Authorized User
-/api/attendance/scan	POST	Submit scanned barcode	Instructor
-/api/attendance/student/{id}	GET	View student attendance	Student
-/api/reports/attendance	GET	Generate attendance report	Admin
-/api/auth/login	POST	Login with MFA	All
-Security
-Role-Based Access Control (RBAC): Enforced for Admin, Instructor, and Student roles.
-
-Multi-Factor Authentication (MFA): Required for instructor logins.
-
-Data Encryption: Sensitive data is encrypted.
-
-Transport Layer Security (TLS): HTTPS using SSL for secure communication.
-
-Technology Stack
-Frontend: Expo.js
-
-Backend: Spring Boot
-
-Database: MySQL / MongoDB Atlas
-
-Authentication: Spring Security + MFA
-
-Data Flow
-Registration: Authorized users register students/instructors, and the system stores their data in the database.
-
-Attendance: Instructors scan barcodes, and the system validates and records timestamped attendance.
-
-Viewing: Students log in to view their attendance per course.
-
-Reporting: Admins generate attendance summary reports.
-
-Assumptions & Constraints
-QR scanning requires camera-enabled devices.
-
-University users must register manually via the web dashboard.
-
-The system does not integrate with other university APIs (per requirement R05.03).
-
-Timeline
-Initial System Check: May 15, 2025
-
-Full Deployment: May 22, 2025
-
-Requirement Traceability
-For a detailed mapping of requirements to use cases, refer to the Requirement Traceability Matrix.
-
-Conceptual Diagram
-Conceptual Diagram
-
-Use Case Diagram
-Use Case Diagram
-
-For further details, refer to the [High-Level Design Document](Automated-Attendance-Tracking-System High-Level Design Document.docx).
-
-
+## 📚 Documentation
+- [📋 Requirement Matrix](Requirement_Traceability_Matrix.xlsx)
+- [📊 Use Case Diagram](Use%20Case%20Diagram.docx)
+- [📄 High-Level Design](Automated-Attendance-Tracking-System%20High-Level%20Design%20Document.docx)
